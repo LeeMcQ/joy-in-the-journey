@@ -1,0 +1,537 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================================================================== */
+/*  CSS CUSTOM PROPERTIES — Theme tokens                              */
+/* ================================================================== */
+
+:root {
+  --gold-50: 254 249 236;
+  --gold-500: 212 160 23;
+  --gold-600: 181 136 19;
+
+  /* Global font (synced by ThemeProvider) */
+  --app-font-size: 16px;
+  --app-line-height: 1.7;
+  --app-font-family: "Lora", "EB Garamond", Georgia, serif;
+
+  --color-bg: 15 23 42;
+  --color-surface: 22 34 67;
+  --color-surface-elevated: 30 45 82;
+  --color-text-primary: 255 255 255;
+  --color-text-secondary: 168 178 204;
+  --color-text-muted: 106 117 151;
+  --color-border: 255 255 255 / 0.08;
+  --color-border-strong: 255 255 255 / 0.15;
+
+  --radius-card: 1rem;
+}
+
+/* ── DARK ────────────────────────────────────────────────────────── */
+.theme-dark {
+  --color-bg: 15 23 42;
+  --color-surface: 22 34 67;
+  --color-surface-elevated: 30 45 82;
+  --color-text-primary: 255 255 255;
+  --color-text-secondary: 168 178 204;
+  --color-text-muted: 120 132 168;
+  --color-border: 255 255 255 / 0.08;
+  --color-border-strong: 255 255 255 / 0.15;
+  --color-gold-text: 212 160 23;
+}
+
+/* ── LIGHT ───────────────────────────────────────────────────────── */
+.theme-light {
+  --color-bg: 255 255 255;
+  --color-surface: 245 246 250;
+  --color-surface-elevated: 255 255 255;
+  --color-text-primary: 15 23 42;
+  --color-text-secondary: 78 99 150;
+  --color-text-muted: 110 125 158;
+  --color-border: 15 23 42 / 0.08;
+  --color-border-strong: 15 23 42 / 0.15;
+  --color-gold-text: 140 106 15;
+}
+
+/* ── SEPIA ───────────────────────────────────────────────────────── */
+.theme-sepia {
+  --color-bg: 245 240 230;
+  --color-surface: 237 230 214;
+  --color-surface-elevated: 245 240 230;
+  --color-text-primary: 61 50 36;
+  --color-text-secondary: 92 75 55;
+  --color-text-muted: 140 120 90;
+  --color-border: 61 50 36 / 0.1;
+  --color-border-strong: 61 50 36 / 0.18;
+  --color-gold-text: 140 106 15;
+}
+
+/* ================================================================== */
+/*  BASE                                                              */
+/* ================================================================== */
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply min-h-screen;
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size);
+    line-height: var(--app-line-height);
+    background-color: rgb(var(--color-bg));
+    color: rgb(var(--color-text-primary));
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    transition: background-color 0.3s ease, color 0.3s ease, font-size 0.2s ease;
+  }
+
+  /* UI chrome keeps DM Sans at fixed sizes — nav, badges, buttons */
+  nav, .badge-gold, .btn-primary, .btn-secondary, .btn-ghost, .q-badge {
+    font-family: "DM Sans", system-ui, sans-serif;
+    font-size: revert;
+    line-height: revert;
+  }
+
+  /* Buttons use sans but inherit size from parent */
+  button, select {
+    font-family: "DM Sans", system-ui, sans-serif;
+  }
+
+  /* Inputs and textareas inherit the global font settings */
+  input, textarea {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+
+  /* Scripture text */
+  .scripture {
+    @apply font-scripture text-scripture leading-[1.75] tracking-[0.01em];
+    font-variant-ligatures: common-ligatures;
+    font-feature-settings: "onum" 1, "liga" 1;
+  }
+
+  .scripture em,
+  .scripture i {
+    @apply italic;
+    color: rgb(var(--color-text-secondary));
+  }
+
+  .small-caps {
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+  }
+
+  ::selection {
+    background-color: rgba(212, 160, 23, 0.25);
+    color: inherit;
+  }
+}
+
+/* ================================================================== */
+/*  COMPONENTS                                                        */
+/* ================================================================== */
+
+@layer components {
+
+  /* ── Cards ─────────────────────────────────────────── */
+
+  .card {
+    border-radius: var(--radius-card);
+    @apply p-4 transition-all duration-200;
+  }
+
+  .card-surface {
+    background-color: rgb(var(--color-surface));
+    border: 1px solid rgb(var(--color-border));
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .card-elevated {
+    background-color: rgb(var(--color-surface-elevated));
+    border: 1px solid rgb(var(--color-border-strong));
+    @apply shadow-card;
+  }
+
+  .card-gold {
+    background: linear-gradient(
+      135deg,
+      rgba(212, 160, 23, 0.08) 0%,
+      rgba(212, 160, 23, 0.02) 100%
+    );
+    border: 1px solid rgba(212, 160, 23, 0.15);
+  }
+
+  .card-interactive {
+    @apply cursor-pointer;
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.2s ease;
+  }
+  .card-interactive:active {
+    transform: scale(0.98);
+  }
+  @media (hover: hover) {
+    .card-interactive:hover {
+      transform: translateY(-1px);
+      @apply shadow-card-lg;
+    }
+  }
+
+  /* ── Buttons ───────────────────────────────────────── */
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-6 py-3
+           font-sans font-semibold text-sm
+           transition-all duration-150 ease-spring;
+    background: linear-gradient(135deg, #D4A017, #E5BF2E);
+    color: #1E1604;
+    box-shadow: 0 1px 3px rgba(212, 160, 23, 0.3);
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 2px rgba(212, 160, 23, 0.2);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-6 py-3
+           font-sans font-medium text-sm
+           transition-all duration-150 ease-spring;
+    border: 1px solid rgba(212, 160, 23, 0.25);
+    color: #D4A017;
+  }
+  .btn-secondary:active {
+    transform: scale(0.97);
+    background: rgba(212, 160, 23, 0.05);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-4 py-2
+           font-sans font-medium text-sm
+           transition-all duration-150;
+    color: rgb(var(--color-text-muted));
+  }
+  .btn-ghost:active {
+    background: rgb(var(--color-surface));
+  }
+
+  /* ── Badge ─────────────────────────────────────────── */
+
+  .badge-gold {
+    @apply inline-flex items-center gap-1 rounded-full
+           px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-caps;
+    background: rgba(212, 160, 23, 0.12);
+    color: #D4A017;
+  }
+
+  /* ── Dividers ──────────────────────────────────────── */
+
+  .divider {
+    border: none;
+    height: 1px;
+    background-color: rgb(var(--color-border));
+  }
+
+  .divider-gold {
+    border: none;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(212, 160, 23, 0.3) 20%,
+      rgba(212, 160, 23, 0.3) 80%,
+      transparent
+    );
+  }
+
+  /* ── Progress ring ─────────────────────────────────── */
+
+  .progress-ring {
+    transform: rotate(-90deg);
+  }
+
+  /* ── Question badge ────────────────────────────────── */
+
+  .q-badge {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center
+           rounded-full text-xs font-bold;
+    background: rgba(212, 160, 23, 0.12);
+    color: #D4A017;
+  }
+
+  /* ── Note / commentary ─────────────────────────────── */
+
+  .note-block {
+    border-left: 3px solid rgba(212, 160, 23, 0.3);
+    @apply rounded-r-lg pl-4 py-2;
+    background: rgba(212, 160, 23, 0.03);
+  }
+
+  .note-block blockquote {
+    @apply font-scripture italic;
+    color: rgb(var(--color-text-secondary));
+  }
+
+  .note-block cite {
+    @apply block mt-1 text-xs font-sans not-italic;
+    color: rgb(var(--color-text-muted));
+  }
+
+  /* ── Inputs ────────────────────────────────────────── */
+
+  .input {
+    @apply w-full rounded-xl border px-4 py-3
+           text-sm font-sans outline-none
+           transition-colors duration-200
+           placeholder:opacity-30;
+    background-color: rgb(var(--color-surface));
+    border-color: rgb(var(--color-border));
+    color: rgb(var(--color-text-primary));
+  }
+  .input:focus {
+    border-color: rgba(212, 160, 23, 0.4);
+    box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.08);
+  }
+
+  .textarea {
+    @apply input resize-none;
+    min-height: 4.5rem;
+  }
+}
+
+/* ================================================================== */
+/*  UTILITIES                                                         */
+/* ================================================================== */
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-primary { color: rgb(var(--color-text-primary)); }
+  .text-secondary { color: rgb(var(--color-text-secondary)); }
+  .text-muted { color: rgb(var(--color-text-muted)); }
+
+  .text-gold-accessible { color: rgb(var(--color-gold-text)); }
+
+  .bg-surface { background-color: rgb(var(--color-surface)); transition: background-color 0.3s ease; }
+  .bg-elevated { background-color: rgb(var(--color-surface-elevated)); transition: background-color 0.3s ease; }
+  .bg-base { background-color: rgb(var(--color-bg)); transition: background-color 0.3s ease; }
+  .border-theme { border-color: rgb(var(--color-border)); }
+  .border-theme-strong { border-color: rgb(var(--color-border-strong)); }
+
+  .text-gold-gradient {
+    background: linear-gradient(135deg, #E5BF2E 0%, #D4A017 50%, #B58813 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .noise::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    mix-blend-mode: overlay;
+  }
+}
+
+/* ================================================================== */
+/*  GOLD ARROW HEADER — matches PDF pennant                           */
+/* ================================================================== */
+
+.arrow-header {
+  --arrow-h: 52px;
+  --point-w: 32px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--arrow-h);
+  margin-right: var(--point-w);
+}
+
+.arrow-header__body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
+  padding: 0 1rem;
+  background: linear-gradient(
+    135deg,
+    #C8920F 0%,
+    #D4A017 30%,
+    #E5C44A 65%,
+    #F0D97A 100%
+  );
+  border-radius: 4px 0 0 4px;
+}
+
+.arrow-header__body::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--point-w));
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: calc(var(--arrow-h) / 2) 0 calc(var(--arrow-h) / 2) var(--point-w);
+  border-color: transparent transparent transparent #F0D97A;
+}
+
+.arrow-header__title {
+  font-family: "Playfair Display", Georgia, serif;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1;
+  color: #3B2D07;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 3.5rem);
+}
+
+.arrow-header__number {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 800;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: #3B2D07;
+  flex-shrink: 0;
+  padding-left: 0.75rem;
+}
+
+.arrow-header--sm {
+  --arrow-h: 40px;
+  --point-w: 24px;
+}
+.arrow-header--sm .arrow-header__title {
+  font-size: 0.75rem;
+}
+.arrow-header--sm .arrow-header__number {
+  font-size: 0.875rem;
+}
+
+/* ================================================================== */
+/*  SCROLLBAR                                                         */
+/* ================================================================== */
+
+@media (min-width: 768px) {
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(212, 160, 23, 0.2);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 160, 23, 0.35);
+  }
+}
+
+/* ================================================================== */
+/*  RANGE SLIDER — gold themed                                        */
+/* ================================================================== */
+
+.range-gold {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(var(--color-surface));
+  outline: none;
+}
+
+.range-gold::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #D4A017;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(212, 160, 23, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.range-gold::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+}
+
+.range-gold::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #D4A017;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(212, 160, 23, 0.3);
+}
+
+.range-gold::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(var(--color-surface));
+}
+
+/* Font mono for TW */
+.font-mono {
+  font-family: "Source Code Pro", ui-monospace, monospace;
+}
+
+/* ================================================================== */
+/*  FOCUS STATES — keyboard accessibility                             */
+/* ================================================================== */
+
+*:focus-visible {
+  outline: 2px solid rgba(212, 160, 23, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(212, 160, 23, 0.6);
+  outline-offset: 2px;
+}
+
+/* Remove inner focus ring on inputs that already have border glow */
+.input:focus-visible,
+.textarea:focus-visible {
+  outline: none;
+}
