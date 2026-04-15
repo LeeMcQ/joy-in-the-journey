@@ -319,8 +319,7 @@ export function MorePage() {
         </p>
         <div className="divider my-3" />
         <div className="flex items-center justify-between">
-          <p className="text-muted text-[11px]">Version 1.0.0</p>
-          <p className="text-muted text-[11px]">PWA · React · TypeScript</p>
+         
         </div>
       </div>
 

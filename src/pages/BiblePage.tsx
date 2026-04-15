@@ -275,12 +275,6 @@ export function BiblePage() {
               ))}
             </div>
 
-            <div className="card card-surface">
-              <p className="text-muted text-[12px] leading-relaxed">
-                <strong className="text-secondary">KJV</strong>, <strong className="text-secondary">WEB</strong>, and <strong className="text-secondary">ASV</strong> are public domain — download them for full offline use.{" "}
-                <strong className="text-secondary">Good News</strong> and <strong className="text-secondary">ESV</strong> are copyrighted and available online only via BibleGateway.
-              </p>
-            </div>
           </div>
         )}
 
