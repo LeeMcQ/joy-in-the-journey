@@ -5,7 +5,7 @@
 /* ================================================================== */
 
 let _ctx: AudioContext | null = null;
-let _enabled = true;
+let _enabled = false;   // ← Sound is now OFF by default
 
 /** Get or create AudioContext (handles iOS restrictions) */
 function getCtx(): AudioContext | null {

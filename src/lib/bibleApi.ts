@@ -113,3 +113,43 @@ export function bibleGatewayUrl(
 ): string {
   return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=${version}`;
 }
+/* ================================================================== */
+/*  FULL BIBLE OFFLINE STORAGE                                        */
+/* ================================================================== */
+
+const FULL_BIBLE_STORE = "full-bibles";
+
+async function getFullBibleDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("joy-journey-bible", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(FULL_BIBLE_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Fetch full Bible JSON directly from your website */
+/** Download the full Bible directly from YOUR website */
+export async function fetchFullBible(version: string = "kjv"): Promise<any> {
+  const url = `/bibles/${version}.json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to download ${version.toUpperCase()} Bible from your site`);
+  return await res.json();
+}
+
+/** Save full Bible to IndexedDB */
+export async function saveFullBibleToDB(version: string, data: any) {
+  const db = await getFullBibleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(FULL_BIBLE_STORE, "readwrite");
+    tx.objectStore(FULL_BIBLE_STORE).put(data, version);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Check if full Bible is already downloaded */
+export function isFullBibleDownloaded(version: string): boolean {
+  // Simple check – you can make this more robust later with Zustand if you want
+  return localStorage.getItem(`fullBible_${version}`) === "true";
+}

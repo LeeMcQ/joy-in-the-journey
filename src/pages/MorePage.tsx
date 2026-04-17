@@ -27,6 +27,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { fetchFullBible, saveFullBibleToDB, isFullBibleDownloaded } from "@/lib/bibleApi";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useReadingStyle, FONT_LABELS } from "@/hooks/useReadingStyle";
@@ -100,21 +101,27 @@ export function MorePage() {
     <div className="flex flex-col gap-5 px-5 pb-8 pt-10">
       <h1 className="font-display text-[24px] font-bold">Settings</h1>
 
-      {/* ── Install prompt ───────────────────────────────── */}
+            {/* ── Install App — now at the very top of the menu ── */}
       {(canInstall || isIOS) && (
-        <div className="card card-gold overflow-hidden">
-          <div className="flex items-center gap-3">
+        <div className="card card-gold overflow-hidden mb-6">
+          <div className="flex items-center gap-3 p-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-500/15">
               <Download size={20} className="text-gold-500" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Install App</p>
-              <p className="text-muted text-[12px] leading-relaxed">
-                {isIOS ? 'Tap Share → "Add to Home Screen"' : "Add to your home screen"}
+              <p className="text-base font-semibold">Install Joy in the Journey</p>
+              <p className="text-muted text-sm">
+                {isIOS ? 'Tap Share → "Add to Home Screen"' : "Add to your home screen for offline access"}
               </p>
             </div>
             {canInstall && (
-              <button onClick={async () => { const ok = await install(); if (ok) showToast("App installed!", { type: "success" }); }} className="btn-primary !px-4 !py-2 text-sm">
+              <button
+                onClick={async () => {
+                  const ok = await install();
+                  if (ok) showToast("App installed! 🎉", { type: "success" });
+                }}
+                className="btn-primary px-6 py-2 text-sm font-semibold"
+              >
                 Install
               </button>
             )}
@@ -122,10 +129,11 @@ export function MorePage() {
           </div>
         </div>
       )}
+
       {isInstalled && (
-        <div className="flex items-center gap-2 rounded-xl bg-gold-500/10 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-xl bg-gold-500/10 px-3 py-2 mb-6">
           <Smartphone size={14} className="text-gold-500" />
-          <p className="text-[12px] font-medium text-gold-500">App installed!</p>
+          <p className="text-sm font-medium text-gold-500">App is installed on your device</p>
         </div>
       )}
 
@@ -143,6 +151,7 @@ export function MorePage() {
           ))}
         </div>
       </Section>
+	  
 
       {/* ── Sound & Haptics ─────────────────────────────── */}
       <Section icon={Volume2} title="Sound & Haptics">
@@ -166,6 +175,35 @@ export function MorePage() {
             <div className={cn("h-5 w-5 rounded-full bg-white shadow transition-transform", soundOn && "translate-x-5")} />
           </div>
         </button>
+      </Section>
+	  
+	        {/* ── Offline Full Bible ──────────────────────────────── */}
+      <Section icon={BookOpen} title="Offline Bible">
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={async () => {
+              try {
+                const version = bibleVersion.toLowerCase();
+                showToast("Downloading full Bible…", { type: "info" });
+                const fullBible = await fetchFullBible(version);
+                await saveFullBibleToDB(version, fullBible);
+                showToast(`✅ Full ${version.toUpperCase()} Bible saved for offline use!`, { type: "success" });
+              } catch (err) {
+                showToast("Download failed – check your connection", { type: "error" });
+              }
+            }}
+            className="btn-primary flex items-center justify-center gap-2 py-4"
+          >
+            <Download size={18} />
+            Download Full Bible for Offline
+          </button>
+
+          {isFullBibleDownloaded(bibleVersion.toLowerCase()) && (
+            <p className="text-xs text-green-500 flex items-center gap-1">
+              <CheckCircle2 size={14} /> Full Bible already downloaded
+            </p>
+          )}
+        </div>
       </Section>
 
       {/* ── Font Size (dynamic slider) ───────────────────── */}
@@ -319,7 +357,8 @@ export function MorePage() {
         </p>
         <div className="divider my-3" />
         <div className="flex items-center justify-between">
-         
+          <p className="text-muted text-[11px]">Version 1.0.0</p>
+          <p className="text-muted text-[11px]">PWA · React · TypeScript</p>
         </div>
       </div>
 

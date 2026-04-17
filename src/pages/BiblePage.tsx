@@ -275,6 +275,7 @@ export function BiblePage() {
               ))}
             </div>
 
+           
           </div>
         )}
 

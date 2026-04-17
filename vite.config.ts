@@ -18,6 +18,7 @@ export default defineConfig({
         "apple-touch-icon.png",
         "icons/icon-192.png",
         "icons/icon-512.png",
+		"bibles/*.json",   // ← ADD THIS LINE
       ],
       manifest: {
         name: "Joy in the Journey — Bible Study Series",
@@ -78,6 +79,15 @@ export default defineConfig({
               cacheName: "bible-api-cache",
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
+            },
+			
+          },
+		            {
+            urlPattern: /^https:\/\/leemcq\.github\.io\/joy-in-the-journey\/bibles\/.*\.json$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "bible-full-data",
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
             },
           },
         ],
