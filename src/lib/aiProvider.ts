@@ -145,7 +145,13 @@ export async function chatWithAI(
   return callOpenAICompatible(provider, apiKey, messages, signal);
 }
 
+/* ================================================== */
+/*  GROQ API KEY SETUP — SECURE VERSION               */
+/*  Key is stored ONLY in your browser (never on GitHub) */
+/* ================================================== */
 
+// No default key is hardcoded anymore.
+// The user sets their own key once in "More → AI Settings"
 /* ── OpenAI-compatible (Groq, OpenRouter, ChatGPT) ────── */
 
 async function callOpenAICompatible(
