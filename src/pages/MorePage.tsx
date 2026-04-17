@@ -177,7 +177,7 @@ export function MorePage() {
         </button>
       </Section>
 	  
-	        {/* ── Offline Full Bible ──────────────────────────────── */}
+	              {/* ── Offline Full Bible ──────────────────────────────── */}
       <Section icon={BookOpen} title="Offline Bible">
         <div className="flex flex-col gap-3">
           <button

@@ -535,3 +535,57 @@ select:focus-visible {
 .textarea:focus-visible {
   outline: none;
 }
+
+/* ================================================== */
+/*  ACCESSIBILITY: Minimum Touch Targets (44px)       */
+/* ================================================== */
+.scripture-link,
+.highlight-delete,
+.btn-ghost,
+.btn-primary,
+.btn-secondary,
+.btn-primary,
+.btn-secondary {
+  min-width: 44px !important;
+  min-height: 44px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ================================================== */
+/*  VISUAL POLISH (Senior Designer Recommendations)   */
+/* ================================================== */
+.btn-primary {
+  box-shadow: 0 4px 25px -4px rgb(212 160 23 / 0.4);
+}
+
+.scripture {
+  line-height: 1.85;
+  letter-spacing: -0.02em;
+}
+
+.card {
+  padding: 1.5rem; /* p-6 */
+}
+
+.highlight-active {
+  border-bottom: 3px solid #D4A017;
+  box-shadow: 0 0 8px rgba(212, 160, 23, 0.25) inset;
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.75rem;
+  }
+}
+
+/* ProgressRing */
+.progress-ring circle {
+  stroke-width: 8;
+}
+
+/* Bottom nav active state (also fixes Ask AI size) */
+.bottom-nav .active {
+  transform: scale(1.1);
+}

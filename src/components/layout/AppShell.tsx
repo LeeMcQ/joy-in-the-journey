@@ -112,14 +112,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                           : "bg-navy-900/80",
                     )}>
                       <Icon
-                        size={15}
+                        size={24}
                         strokeWidth={2}
                         className={active ? "text-navy-900" : "text-white"}
                       />
                     </div>
                   ) : (
                     <Icon
-                      size={22}
+                      size={24}
                       strokeWidth={active ? 2.3 : 1.6}
                       className={cn(
                         "transition-all duration-200",

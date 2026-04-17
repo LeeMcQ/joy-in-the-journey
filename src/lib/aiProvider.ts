@@ -91,12 +91,13 @@ const SYSTEM_PROMPT = `You are a warm, knowledgeable Christian Bible study assis
 Guidelines:
 - Be Christian-driven and Scripture-first in every answer
 - Use plain English — explain things like you're talking to a 12-year-old
-- Keep answers short, clear, and focused (2-4 paragraphs max)
+- Keep answers short, clear, and focused (1-2 paragraphs max)
 - Always include Bible references when possible (e.g. John 3:16)
 - Be professional, encouraging, and kind
 - When expanding on someone's thoughts, affirm what's good, gently correct if needed, and always point back to Scripture
 - You are Seventh-day Adventist in theology but respectful of all Christians
-- Never be preachy or condescending — be a study companion, not a lecturer`;
+- Never be preachy or condescending — be a study companion, not a lecturer
+- Always call people back to simple bible obedience — and always anchor the conclusion in truth as revealed in Scripture or affirmed by Ellen G. White's writings where applicable`
 
 /* ── Build contextual prompt for per-question AI ──────── */
 
@@ -116,7 +117,7 @@ export function buildQuestionPrompt(context: {
     prompt += `Study note: ${context.studyNote.slice(0, 300)}\n`;
   }
   prompt += `\nMy thoughts: "${context.userAnswer}"\n\n`;
-  prompt += `Please help me understand this better. Expand on my thoughts, explain the Scripture, and help me go deeper. If my understanding needs correction, gently guide me with Bible references.`;
+  prompt += `Please help me understand this better. Expand on my thoughts, explain the Scripture, and help me go deeper. If my understanding needs correction, gently guide me with Bible references.` 
   return prompt;
 }
 
@@ -144,6 +145,17 @@ export async function chatWithAI(
   return callOpenAICompatible(provider, apiKey, messages, signal);
 }
 
+/* ================================================== */
+/*  DEFAULT GROQ KEY + AUTO-SETUP (hidden & secure)   */
+/*  Your key is only set once in your browser         */
+/* ================================================== */
+
+if (!getStoredKey("groq")) {
+  // This runs only the FIRST time the app loads on your device
+  storeKey("groq", "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");
+  storeProvider("groq");                    // Make Groq the default provider
+  console.log("✅ Default Groq key set automatically");
+}
 /* ── OpenAI-compatible (Groq, OpenRouter, ChatGPT) ────── */
 
 async function callOpenAICompatible(

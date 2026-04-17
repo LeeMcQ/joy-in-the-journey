@@ -117,6 +117,12 @@ export function bibleGatewayUrl(
 /*  FULL BIBLE OFFLINE STORAGE                                        */
 /* ================================================================== */
 
+
+
+/* ================================================================== */
+/*  FULL BIBLE OFFLINE STORAGE                                        */
+/* ================================================================== */
+
 const FULL_BIBLE_STORE = "full-bibles";
 
 async function getFullBibleDB(): Promise<IDBDatabase> {
@@ -129,12 +135,10 @@ async function getFullBibleDB(): Promise<IDBDatabase> {
 }
 
 /** Fetch full Bible JSON directly from your website */
-/** Download the full Bible directly from YOUR website */
 export async function fetchFullBible(version: string = "kjv"): Promise<any> {
-  const url = `/bibles/${version}.json`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to download ${version.toUpperCase()} Bible from your site`);
-  return await res.json();
+  const res = await fetch(`/bibles/${version}.json`);
+  if (!res.ok) throw new Error("Failed to load Bible JSON");
+  return res.json();
 }
 
 /** Save full Bible to IndexedDB */
