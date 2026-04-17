@@ -145,17 +145,7 @@ export async function chatWithAI(
   return callOpenAICompatible(provider, apiKey, messages, signal);
 }
 
-/* ================================================== */
-/*  DEFAULT GROQ KEY + AUTO-SETUP (hidden & secure)   */
-/*  Your key is only set once in your browser         */
-/* ================================================== */
 
-if (!getStoredKey("groq")) {
-  // This runs only the FIRST time the app loads on your device
-  storeKey("groq", "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");
-  storeProvider("groq");                    // Make Groq the default provider
-  console.log("✅ Default Groq key set automatically");
-}
 /* ── OpenAI-compatible (Groq, OpenRouter, ChatGPT) ────── */
 
 async function callOpenAICompatible(
