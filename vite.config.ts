@@ -27,9 +27,7 @@ export default defineConfig({
         theme_color: "#0F172A",
         background_color: "#0F172A",
         display: "standalone",
-        // FIX #1: Changed "portrait" → "any" so landscape is no longer OS-blocked.
-        // CSS media queries in index.css now handle the landscape layout.
-        orientation: "any",
+        orientation: "any",                    // ← Fixed here
         scope: base,
         start_url: base,
         categories: ["education", "books"],
@@ -84,8 +82,6 @@ export default defineConfig({
             },
           },
           {
-            // FIX #2: Added cacheableResponse — without this, GitHub Pages CDN
-            // responses may be treated as opaque and silently refused by Workbox.
             urlPattern: /^https:\/\/leemcq\.github\.io\/joy-in-the-journey\/bibles\/.*\.json$/,
             handler: "CacheFirst",
             options: {
