@@ -1,18 +1,38 @@
 name: Deploy
+
 on:
   push:
     branches: [main]
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download Bible JSON files for offline support
-          run: npm run download-bibles
-          # This creates public/bibles/kjv.json and public/bibles/web.json
-          # so they're included in the Vite build output
 
-        - name: Build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Bible JSON files for offline support
+        run: npm run download-bibles
+        # This creates public/bibles/*.json so they are included in the build
+
+      - name: Build the app
         run: npm run build
         env:
-          VITE_BASE: "/joy-in-the-journey/" 
+          VITE_BASE: "/joy-in-the-journey/"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
