@@ -113,11 +113,6 @@ export function bibleGatewayUrl(
 ): string {
   return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=${version}`;
 }
-/* ================================================================== */
-/*  FULL BIBLE OFFLINE STORAGE                                        */
-/* ================================================================== */
-
-
 
 /* ================================================================== */
 /*  FULL BIBLE OFFLINE STORAGE                                        */

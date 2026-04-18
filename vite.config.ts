@@ -18,7 +18,7 @@ export default defineConfig({
         "apple-touch-icon.png",
         "icons/icon-192.png",
         "icons/icon-512.png",
-		"bibles/*.json",   // ← ADD THIS LINE
+        "bibles/*.json",
       ],
       manifest: {
         name: "Joy in the Journey — Bible Study Series",
@@ -27,7 +27,9 @@ export default defineConfig({
         theme_color: "#0F172A",
         background_color: "#0F172A",
         display: "standalone",
-        orientation: "portrait",
+        // FIX #1: Changed "portrait" → "any" so landscape is no longer OS-blocked.
+        // CSS media queries in index.css now handle the landscape layout.
+        orientation: "any",
         scope: base,
         start_url: base,
         categories: ["education", "books"],
@@ -77,17 +79,19 @@ export default defineConfig({
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "bible-api-cache",
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
-			
           },
-		            {
+          {
+            // FIX #2: Added cacheableResponse — without this, GitHub Pages CDN
+            // responses may be treated as opaque and silently refused by Workbox.
             urlPattern: /^https:\/\/leemcq\.github\.io\/joy-in-the-journey\/bibles\/.*\.json$/,
             handler: "CacheFirst",
             options: {
               cacheName: "bible-full-data",
               expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],
