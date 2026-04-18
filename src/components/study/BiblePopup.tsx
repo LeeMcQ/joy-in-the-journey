@@ -31,7 +31,7 @@ export function BiblePopup({ reference, onClose, onOpenReader }: Props) {
   const [fetchState, setFetchState] = useState<FetchState>({ status: "idle" });
   const [activeTab, setActiveTab] = useState<TranslationId>("kjv");
   const [copied, setCopied] = useState(false);
-  style={{ maxHeight: '80dvh', overflowY: 'auto', paddingBottom: 'max(env(safe-area-inset-bottom,0px),16px)' }}
+  
 
   useEffect(() => {
     if (!reference) { setFetchState({ status: "idle" }); return; }
@@ -99,11 +99,18 @@ export function BiblePopup({ reference, onClose, onOpenReader }: Props) {
     <div ref={backdropRef} onClick={(e) => { if (e.target === backdropRef.current) onClose(); }} className="fixed inset-0 z-[100] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/50 animate-fade-in" />
 
-      <div className={cn(
-        "relative z-10 w-full max-w-lg animate-slide-up",
-        "flex max-h-[85dvh] flex-col rounded-t-3xl safe-bottom",
-        isDark ? "bg-navy-700" : "bg-elevated",
-      )}>
+           <div 
+        className={cn(
+          "relative z-10 w-full max-w-lg animate-slide-up",
+          "flex max-h-[85dvh] flex-col rounded-t-3xl safe-bottom",
+          isDark ? "bg-navy-700" : "bg-elevated",
+        )}
+        style={{ 
+          maxHeight: '80dvh', 
+          overflowY: 'auto', 
+          paddingBottom: 'max(env(safe-area-inset-bottom,0px),16px)' 
+        }}
+      >
         <div className="flex justify-center py-3">
           <div className="h-1 w-10 rounded-full bg-muted opacity-30" />
         </div>

@@ -71,6 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               : "border-theme bg-base/85",
 			  
           )}
+		  style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
         >
 		
           <ActiveIndicator pathname={pathname} showAI={showAIChat} />

@@ -72,6 +72,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.style.setProperty("--app-font-size", `${fontSize}px`);
 	
+	// ← ADD THIS LINE FOR BETTER MOBILE SCALING
+    document.documentElement.style.fontSize = `${Math.round((fontSize / 16) * 10000) / 100}%`;
+	
     root.style.setProperty("--app-line-height", fontSize <= 14 ? "1.6" : fontSize <= 18 ? "1.7" : "1.8");
     root.style.setProperty("--app-font-family", FONT_STACKS[fontFamily]);
 	
