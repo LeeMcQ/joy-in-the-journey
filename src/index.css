@@ -590,3 +590,20 @@ select:focus-visible {
 .bottom-nav .active {
   transform: scale(1.1);
 }
+
+/* ================================================== */
+/*  MOBILE LAYOUT FIXES (safe-area + scroll padding) */
+/* ================================================== */
+.page-scroll-pb {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
+}
+
+.bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom), 8px) !important;
+}
+
+/* Improve long study pages */
+.study-page, .bible-page, .more-page {
+  max-height: 100dvh;
+  overflow-y: auto;
+}

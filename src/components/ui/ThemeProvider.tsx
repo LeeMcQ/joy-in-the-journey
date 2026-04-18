@@ -71,8 +71,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--app-font-size", `${fontSize}px`);
+	
     root.style.setProperty("--app-line-height", fontSize <= 14 ? "1.6" : fontSize <= 18 ? "1.7" : "1.8");
     root.style.setProperty("--app-font-family", FONT_STACKS[fontFamily]);
+	
   }, [fontSize, fontFamily]);
 
   /* Build semantic token object */

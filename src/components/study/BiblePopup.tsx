@@ -31,6 +31,7 @@ export function BiblePopup({ reference, onClose, onOpenReader }: Props) {
   const [fetchState, setFetchState] = useState<FetchState>({ status: "idle" });
   const [activeTab, setActiveTab] = useState<TranslationId>("kjv");
   const [copied, setCopied] = useState(false);
+  style={{ maxHeight: '80dvh', overflowY: 'auto', paddingBottom: 'max(env(safe-area-inset-bottom,0px),16px)' }}
 
   useEffect(() => {
     if (!reference) { setFetchState({ status: "idle" }); return; }

@@ -69,8 +69,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             isDark
               ? "border-white/[0.06] bg-navy-900/85"
               : "border-theme bg-base/85",
+			  
           )}
         >
+		
           <ActiveIndicator pathname={pathname} showAI={showAIChat} />
 
           <div className="flex items-stretch justify-around">
@@ -149,6 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </div>
         </nav>
+		
       )}
     </div>
   );
