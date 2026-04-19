@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+# Required for peaceiris/actions-gh-pages to push to gh-pages branch
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,12 +27,14 @@ jobs:
 
       - name: Download Bible JSON files for offline support
         run: npm run download-bibles
-        # This creates public/bibles/*.json so they are included in the build
 
       - name: Build the app
         run: npm run build
         env:
           VITE_BASE: "/joy-in-the-journey/"
+
+      - name: Copy index.html to 404.html for SPA routing
+        run: cp dist/index.html dist/404.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
