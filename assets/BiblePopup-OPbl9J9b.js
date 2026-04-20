@@ -1,4 +1,4 @@
-import{c as x,r as n,u as C,j as e,B as L,X as E,b as g,L as S,G as T}from"./index-BwqRKUxO.js";import{l as A}from"./localBible-CuYfoCCf.js";import{W as I}from"./wifi-off-BsxS6gOZ.js";/**
+import{c as x,r as n,u as C,j as e,B as L,X as E,b as g,L as S,G as T}from"./index-M_2RE_vr.js";import{l as A}from"./localBible-CuYfoCCf.js";import{W as I}from"./wifi-off-B0rhtoGE.js";/**
  * @license lucide-react v0.454.0 - ISC
  *
  * This source code is licensed under the ISC license.
