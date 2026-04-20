@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Send, Loader2, MessageCircle } from "lucide-react";
+import { Send, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/components/ui/ThemeProvider";
 import {
   chatWithAI,
   type ChatMessage,
@@ -19,7 +18,6 @@ interface Props {
 }
 
 export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Props) {
-  const { isDark } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -29,23 +27,27 @@ export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Prop
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  // Pre-load welcome message when opened from Bible Popup
+  // Show welcome screen when opened from main AI icon
   useEffect(() => {
-    if (open && initialVerse && messages.length === 0) {
-      const welcomeMessage: ChatMessage = {
-        role: "assistant",
-        content: `Hi! I'm here to help you study **${initialVerse}**. ${systemPrompt || "What would you like to know or explore about this verse?"}`,
-      };
-      setMessages([welcomeMessage]);
+    if (open && messages.length === 0) {
+      if (initialVerse) {
+        // From BiblePopup
+        const welcome: ChatMessage = {
+          role: "assistant",
+          content: `Hi! I'm here to help you study **${initialVerse}**. ${systemPrompt || "What would you like to explore?"}`,
+        };
+        setMessages([welcome]);
+      } else {
+        // Main screen → your original welcome screen
+        setMessages([]);
+      }
     }
   }, [open, initialVerse, systemPrompt, messages.length]);
 
-  // Reset when chat is closed
+  // Reset when closed
   useEffect(() => {
     if (!open) {
       setMessages([]);
@@ -77,7 +79,7 @@ export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Prop
       if (err.name === "AbortError") return;
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Sorry, I couldn't get a response right now. Please check your API key or try again." },
+        { role: "assistant", content: "Sorry, I couldn't get a response. Please check your API key." },
       ]);
     } finally {
       setIsLoading(false);
@@ -87,110 +89,101 @@ export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Prop
   if (!open) return null;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 z-50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Chat Window */}
-      <div
-        className={cn(
-          "fixed bottom-4 right-4 w-full max-w-md h-[560px] flex flex-col rounded-3xl shadow-2xl border z-[60]",
-          isDark ? "bg-navy-950 border-gold-500/30" : "bg-white border-gray-200"
-        )}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gold-500 text-navy-900 rounded-2xl flex items-center justify-center text-xl">
-              🤖
-            </div>
-            <div>
-              <h3 className="font-bold text-lg">Joy AI Companion</h3>
-              <p className="text-xs text-muted-foreground">Bible study assistant</p>
-            </div>
+    <div className="fixed inset-0 bg-[#0a1428] z-[9999] flex flex-col">
+      {/* Top Bar */}
+      <div className="px-6 py-4 flex items-center justify-between border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-white/10 rounded-2xl flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-amber-300" />
           </div>
+          <div>
+            <span className="text-white font-semibold">Ask AI</span>
+            <span className="text-white/60 text-sm ml-1">via {selectedProvider.toUpperCase()}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button className="text-white/70 hover:text-white text-xl">⚙️</button>
+          <button className="text-white/70 hover:text-white text-xl">🎤</button>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-surface rounded-2xl transition-colors"
+            className="text-white/70 hover:text-white text-2xl leading-none"
           >
-            <X className="w-5 h-5" />
+            ✕
           </button>
         </div>
+      </div>
 
-        {/* Messages Area */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto p-5 space-y-6 bg-[radial-gradient(#f5f5f5_1px,transparent_1px)] dark:bg-[radial-gradient(#1a2533_1px,transparent_1px)] bg-[length:4px_4px]"
-        >
-          {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
-              <MessageCircle className="w-12 h-12 mb-4" />
-              <p className="text-sm font-medium">Ask me anything about the Bible!</p>
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto p-6" ref={scrollRef}>
+        {/* Original Welcome Screen (when opened from main AI icon) */}
+        {messages.length === 0 && !initialVerse && (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mb-8">
+              <Sparkles className="w-14 h-14 text-amber-300" />
             </div>
-          )}
+            <h1 className="text-3xl font-bold text-white mb-3">Bible Study Assistant</h1>
+            <p className="text-white/70 max-w-xs leading-relaxed">
+              Ask any Bible or faith question. I'll answer in plain English with Scripture references.
+            </p>
+          </div>
+        )}
 
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex max-w-[85%]",
-                msg.role === "user" ? "ml-auto justify-end" : "mr-auto"
-              )}
-            >
+        {/* Chat Messages */}
+        {messages.length > 0 && (
+          <div className="space-y-6 max-w-2xl mx-auto">
+            {messages.map((msg, i) => (
               <div
+                key={i}
                 className={cn(
-                  "rounded-3xl px-5 py-3 text-sm leading-relaxed",
-                  msg.role === "user"
-                    ? "bg-gold-500 text-navy-900 rounded-br-none"
-                    : "bg-surface text-foreground rounded-bl-none"
+                  "flex",
+                  msg.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
-                {msg.content}
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-3xl px-6 py-4 text-base",
+                    msg.role === "user"
+                      ? "bg-amber-300 text-[#0a1428]"
+                      : "bg-white/10 text-white"
+                  )}
+                >
+                  {msg.content}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {isLoading && (
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Thinking...
-            </div>
-          )}
-        </div>
-
-        {/* Input Area */}
-        <div className="p-4 border-t bg-surface">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Ask about this verse..."
-              className="flex-1 bg-background border border-border focus:border-gold-500 rounded-3xl px-6 py-4 text-sm outline-none"
-              disabled={isLoading}
-            />
-            <button
-              onClick={handleSend}
-              disabled={isLoading || !input.trim()}
-              className="w-12 h-12 bg-gold-500 hover:bg-gold-600 text-navy-900 rounded-3xl flex items-center justify-center transition-colors disabled:opacity-50"
-            >
-              {isLoading ? (
+            {isLoading && (
+              <div className="flex items-center gap-3 text-white/60">
                 <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </button>
+                Thinking...
+              </div>
+            )}
           </div>
-          <p className="text-[10px] text-center text-muted-foreground mt-3">
-            Powered by {selectedProvider.toUpperCase()} • Answers may vary
-          </p>
+        )}
+      </div>
+
+      {/* Bottom Input Bar */}
+      <div className="p-6 border-t border-white/10 bg-[#0a1428]">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            placeholder="Ask a Bible question..."
+            className="flex-1 bg-white/10 border border-white/20 focus:border-amber-300 rounded-3xl px-6 py-5 text-white placeholder:text-white/50 outline-none"
+            disabled={isLoading}
+          />
+          <button
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            className="w-14 h-14 bg-amber-300 hover:bg-amber-400 text-[#0a1428] rounded-3xl flex items-center justify-center transition-colors disabled:opacity-50"
+          >
+            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
