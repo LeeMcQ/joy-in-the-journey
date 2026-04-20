@@ -1,213 +1,196 @@
+"use client";
+
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, ChevronDown, Settings } from "lucide-react";
-import { useTheme } from "@/components/ui/ThemeProvider";
+import { X, Send, Loader2, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/ui/ThemeProvider";
 import {
   chatWithAI,
-  getStoredProvider,
-  hasAnyKey,
-  PROVIDERS,
   type ChatMessage,
   type ProviderId,
+  getStoredProvider,
 } from "@/lib/aiProvider";
-import { AIKeySetup } from "@/components/ui/AIKeySetup";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  initialVerse?: string;
+  systemPrompt?: string;
 }
 
-export function GlobalAIChat({ open, onClose }: Props) {
+export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Props) {
   const { isDark } = useTheme();
-  const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showSetup, setShowSetup] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedProvider] = useState<ProviderId>(() => getStoredProvider() || "groq");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const abortController = useRef<AbortController | null>(null);
 
+  // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
 
+  // Pre-load welcome message when opened from Bible Popup
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 100);
+    if (open && initialVerse && messages.length === 0) {
+      const welcomeMessage: ChatMessage = {
+        role: "assistant",
+        content: `Hi! I'm here to help you study **${initialVerse}**. ${systemPrompt || "What would you like to know or explore about this verse?"}`,
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, [open, initialVerse, systemPrompt, messages.length]);
+
+  // Reset when chat is closed
+  useEffect(() => {
+    if (!open) {
+      setMessages([]);
+      setInput("");
+    }
   }, [open]);
 
-  const handleSend = async (providerId?: ProviderId) => {
-    const text = input.trim();
-    if (!text) return;
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
-    const pid = providerId ?? getStoredProvider();
-    if (!pid || !hasAnyKey()) {
-      setShowSetup(true);
-      return;
-    }
-
-    const userMsg: ChatMessage = { role: "user", content: text };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    const userMessage: ChatMessage = { role: "user", content: input.trim() };
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setLoading(true);
+    setIsLoading(true);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+    if (abortController.current) abortController.current.abort();
+    abortController.current = new AbortController();
 
     try {
-      const reply = await chatWithAI(pid, newMessages, controller.signal);
-      setMessages([...newMessages, { role: "assistant", content: reply }]);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      setMessages([
-        ...newMessages,
-        { role: "assistant", content: `Sorry, something went wrong: ${err instanceof Error ? err.message : "Unknown error"}` },
+      const response = await chatWithAI(
+        selectedProvider,
+        [...messages, userMessage],
+        abortController.current.signal
+      );
+
+      const assistantMessage: ChatMessage = { role: "assistant", content: response };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry, I couldn't get a response right now. Please check your API key or try again." },
       ]);
     } finally {
-      setLoading(false);
-      abortRef.current = null;
+      setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const providerName = (() => {
-    const pid = getStoredProvider();
-    return PROVIDERS.find((p) => p.id === pid)?.name ?? "AI";
-  })();
-
-  if (!open && !showSetup) return null;
+  if (!open) return null;
 
   return (
     <>
-      {showSetup && (
-        <AIKeySetup
-          onComplete={(pid) => { setShowSetup(false); handleSend(pid); }}
-          onSkip={() => setShowSetup(false)}
-        />
-      )}
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/70 z-50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-      {open && (
-        <div className="fixed inset-0 z-[150] flex flex-col">
-          <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-          <div className={cn(
-            "relative z-10 mt-auto w-full max-w-lg mx-auto",
-            "flex flex-col max-h-[75dvh]",
-            "rounded-t-3xl safe-bottom animate-slide-up",
-            isDark ? "bg-navy-700" : "bg-elevated",
-          )}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-theme">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-navy-900">
-                  <Sparkles size={12} className="text-white" />
-                </div>
-                <span className="text-sm font-semibold">Ask AI</span>
-                {hasAnyKey() && (
-                  <span className="text-muted text-2xs">via {providerName}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setShowSetup(true)}
-                  className="rounded-lg p-2 active:opacity-70"
-                  aria-label="AI settings"
-                >
-                  <Settings size={15} className="text-muted" />
-                </button>
-                {messages.length > 0 && (
-                  <button
-                    onClick={() => setMessages([])}
-                    className="rounded-lg px-2 py-1 text-2xs font-semibold text-muted active:opacity-70"
-                  >
-                    Clear
-                  </button>
-                )}
-                <button onClick={onClose} className="rounded-full p-2 active:opacity-70">
-                  <ChevronDown size={18} className="text-muted" />
-                </button>
-              </div>
+      {/* Chat Window */}
+      <div
+        className={cn(
+          "fixed bottom-4 right-4 w-full max-w-md h-[560px] flex flex-col rounded-3xl shadow-2xl border z-[60]",
+          isDark ? "bg-navy-950 border-gold-500/30" : "bg-white border-gray-200"
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gold-500 text-navy-900 rounded-2xl flex items-center justify-center text-xl">
+              🤖
             </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-hide">
-              {messages.length === 0 && (
-                <div className="flex flex-col items-center gap-3 py-8 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-navy-900/80">
-                    <Sparkles size={20} className="text-white" />
-                  </div>
-                  <p className="text-secondary text-sm font-semibold">Bible Study Assistant</p>
-                  <p className="text-muted text-xs max-w-[240px]">
-                    Ask any Bible or faith question. I'll answer in plain English with Scripture references.
-                  </p>
-                  {!hasAnyKey() && (
-                    <button onClick={() => setShowSetup(true)} className="btn-primary !py-2 !px-4 text-sm mt-2">
-                      <Sparkles size={14} /> Connect AI Provider
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-2xl px-4 py-3 text-[14px] leading-[1.7] whitespace-pre-line",
-                    msg.role === "user"
-                      ? "ml-8 bg-gold-500/10 text-secondary"
-                      : cn("mr-4", isDark ? "bg-navy-800/70" : "bg-surface", "text-secondary"),
-                  )}
-                >
-                  {msg.role === "assistant" && (
-                    <p className="text-2xs font-bold text-gold-500/60 mb-1">
-                      <Sparkles size={9} className="inline mr-1" />{providerName}
-                    </p>
-                  )}
-                  {msg.content}
-                </div>
-              ))}
-
-              {loading && (
-                <div className={cn("mr-4 rounded-2xl px-4 py-3 flex items-center gap-2", isDark ? "bg-navy-800/70" : "bg-surface")}>
-                  <Loader2 size={16} className="animate-spin text-gold-500" />
-                  <span className="text-muted text-sm">Thinking…</span>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="border-t border-theme px-4 py-3">
-              <div className="flex items-center gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask a Bible question…"
-                  className="input flex-1 !rounded-xl !py-2.5"
-                  disabled={loading}
-                />
-                <button
-                  onClick={() => handleSend()}
-                  disabled={loading || !input.trim()}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-500 text-navy-900 active:scale-[0.93] disabled:opacity-30"
-                >
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                </button>
-              </div>
+            <div>
+              <h3 className="font-bold text-lg">Joy AI Companion</h3>
+              <p className="text-xs text-muted-foreground">Bible study assistant</p>
             </div>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-surface rounded-2xl transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      )}
+
+        {/* Messages Area */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto p-5 space-y-6 bg-[radial-gradient(#f5f5f5_1px,transparent_1px)] dark:bg-[radial-gradient(#1a2533_1px,transparent_1px)] bg-[length:4px_4px]"
+        >
+          {messages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
+              <MessageCircle className="w-12 h-12 mb-4" />
+              <p className="text-sm font-medium">Ask me anything about the Bible!</p>
+            </div>
+          )}
+
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex max-w-[85%]",
+                msg.role === "user" ? "ml-auto justify-end" : "mr-auto"
+              )}
+            >
+              <div
+                className={cn(
+                  "rounded-3xl px-5 py-3 text-sm leading-relaxed",
+                  msg.role === "user"
+                    ? "bg-gold-500 text-navy-900 rounded-br-none"
+                    : "bg-surface text-foreground rounded-bl-none"
+                )}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Thinking...
+            </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 border-t bg-surface">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Ask about this verse..."
+              className="flex-1 bg-background border border-border focus:border-gold-500 rounded-3xl px-6 py-4 text-sm outline-none"
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+              className="w-12 h-12 bg-gold-500 hover:bg-gold-600 text-navy-900 rounded-3xl flex items-center justify-center transition-colors disabled:opacity-50"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+          <p className="text-[10px] text-center text-muted-foreground mt-3">
+            Powered by {selectedProvider.toUpperCase()} • Answers may vary
+          </p>
+        </div>
+      </div>
     </>
   );
 }

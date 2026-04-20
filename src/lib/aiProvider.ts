@@ -23,7 +23,7 @@ export const PROVIDERS: Provider[] = [
     name: "Groq",
     model: "llama-3.3-70b-versatile",
     tier: "free",
-    emoji: "⚡",
+    emoji: "Lightning",
     keyUrl: "https://console.groq.com/keys",
     keyHint: "Get a free key at console.groq.com — no credit card needed.",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
@@ -33,7 +33,7 @@ export const PROVIDERS: Provider[] = [
     name: "OpenRouter",
     model: "meta-llama/llama-3.1-8b-instruct:free",
     tier: "free",
-    emoji: "🌐",
+    emoji: "Globe",
     keyUrl: "https://openrouter.ai/keys",
     keyHint: "Get a free key at openrouter.ai/keys — free models available.",
     endpoint: "https://openrouter.ai/api/v1/chat/completions",
@@ -43,7 +43,7 @@ export const PROVIDERS: Provider[] = [
     name: "Claude",
     model: "claude-sonnet-4-20250514",
     tier: "paid",
-    emoji: "🟤",
+    emoji: "Brown Circle",
     keyUrl: "https://console.anthropic.com/settings/keys",
     keyHint: "Get your API key at console.anthropic.com",
     endpoint: "https://api.anthropic.com/v1/messages",
@@ -53,7 +53,7 @@ export const PROVIDERS: Provider[] = [
     name: "ChatGPT",
     model: "gpt-4o-mini",
     tier: "paid",
-    emoji: "🟢",
+    emoji: "Green Circle",
     keyUrl: "https://platform.openai.com/api-keys",
     keyHint: "Get your API key at platform.openai.com",
     endpoint: "https://api.openai.com/v1/chat/completions",
@@ -84,20 +84,6 @@ export function hasAnyKey(): boolean {
   return PROVIDERS.some((p) => !!getStoredKey(p.id));
 }
 
-/* ── System prompt ────────────────────────────────────── */
-
-const SYSTEM_PROMPT = `You are a warm, knowledgeable Christian Bible study assistant. Your role is to help people understand Scripture and deepen their faith.
-
-Guidelines:
-- Be Christian-driven and Scripture-first in every answer
-- Use plain English — explain things like you're talking to a 12-year-old
-- Keep answers short, clear, and focused (1-2 paragraphs max)
-- Always include Bible references when possible (e.g. John 3:16)
-- Be professional, encouraging, and kind
-- When expanding on someone's thoughts, affirm what's good, gently correct if needed, and always point back to Scripture
-- You are Seventh-day Adventist in theology but respectful of all Christians
-- Never be preachy or condescending — be a study companion, not a lecturer
-- Always call people back to simple bible obedience — and always anchor the conclusion in truth as revealed in Scripture or affirmed by Ellen G. White's writings where applicable`
 
 /* ── Build contextual prompt for per-question AI ──────── */
 
@@ -117,7 +103,7 @@ export function buildQuestionPrompt(context: {
     prompt += `Study note: ${context.studyNote.slice(0, 300)}\n`;
   }
   prompt += `\nMy thoughts: "${context.userAnswer}"\n\n`;
-  prompt += `Please help me understand this better. Expand on my thoughts, explain the Scripture, and help me go deeper. If my understanding needs correction, gently guide me with Bible references.` 
+  prompt += `Please help me understand this better. Expand on my thoughts, explain the Scripture, and help me go deeper. If my understanding needs correction, gently guide me with Bible references.`;
   return prompt;
 }
 
@@ -134,96 +120,66 @@ export async function chatWithAI(
   signal?: AbortSignal,
 ): Promise<string> {
   const provider = PROVIDERS.find((p) => p.id === providerId);
-  if (!provider) throw new Error("Unknown provider");
+  if (!provider) throw new Error(`Provider ${providerId} not found`);
 
-  const apiKey = getStoredKey(providerId);
-  if (!apiKey) throw new Error("No API key configured");
+  const key = getStoredKey(providerId);
+  if (!key) throw new Error(`No API key stored for ${provider.name}. Please set it up first.`);
 
-  if (providerId === "claude") {
-    return callClaude(provider, apiKey, messages, signal);
-  }
-  return callOpenAICompatible(provider, apiKey, messages, signal);
-}
+  const isOpenAICompatible = ["groq", "openrouter", "chatgpt"].includes(providerId);
 
-/* ================================================== */
-/*  GROQ API KEY SETUP — SECURE VERSION               */
-/*  Key is stored ONLY in your browser (never on GitHub) */
-/* ================================================== */
+  if (isOpenAICompatible) {
+    const headers: HeadersInit = { "Content-Type": "application/json" };
 
-// No default key is hardcoded anymore.
-// The user sets their own key once in "More → AI Settings"
-/* ── OpenAI-compatible (Groq, OpenRouter, ChatGPT) ────── */
+    if (providerId === "openrouter") {
+      headers["HTTP-Referer"] = "https://leemcq.github.io/joy-in-the-journey/";
+      headers["X-Title"] = "Joy in the Journey";
+    }
 
-async function callOpenAICompatible(
-  provider: Provider,
-  apiKey: string,
-  messages: ChatMessage[],
-  signal?: AbortSignal,
-): Promise<string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${apiKey}`,
-  };
+    headers["Authorization"] = `Bearer ${key}`;
 
-  if (provider.id === "openrouter") {
-    headers["HTTP-Referer"] = window.location.origin;
-    headers["X-Title"] = "Joy in the Journey";
-  }
+    const res = await fetch(provider.endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: provider.model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 1200,
+      }),
+      signal,
+    });
 
-  const res = await fetch(provider.endpoint, {
-    method: "POST",
-    headers,
-    signal,
-    body: JSON.stringify({
-      model: provider.model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...messages,
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
-    }),
-  });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`API error (${res.status}): ${errorText}`);
+    }
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`${provider.name} error ${res.status}: ${text.slice(0, 200)}`);
-  }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.";
+  } else if (providerId === "claude") {
+    const res = await fetch(provider.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: provider.model,
+        max_tokens: 1200,
+        messages: messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      }),
+      signal,
+    });
 
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "No response received.";
-}
+    if (!res.ok) throw new Error("Claude API error");
 
-/* ── Claude (Anthropic API) ───────────────────────────── */
-
-async function callClaude(
-  provider: Provider,
-  apiKey: string,
-  messages: ChatMessage[],
-  signal?: AbortSignal,
-): Promise<string> {
-  const res = await fetch(provider.endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    signal,
-    body: JSON.stringify({
-      model: provider.model,
-      max_tokens: 1000,
-      system: SYSTEM_PROMPT,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Claude error ${res.status}: ${text.slice(0, 200)}`);
+    const data = await res.json();
+    return data.content?.[0]?.text || "Sorry, I couldn't get a response.";
   }
 
-  const data = await res.json();
-  return data.content?.[0]?.text ?? "No response received.";
+  throw new Error("Unsupported provider");
 }
