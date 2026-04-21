@@ -3,12 +3,12 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
-// For GitHub Pages: set VITE_BASE="/your-repo-name/" before building
-// For custom domain or Vercel/Netlify: leave as "/"
-const base = process.env.VITE_BASE || "/";
+// GitHub Pages base path (change only if you rename the repo)
+const GITHUB_REPO_BASE = "/joy-in-the-journey/";
 
 export default defineConfig({
-  base,
+  base: GITHUB_REPO_BASE,
+
   plugins: [
     react(),
     VitePWA({
@@ -27,31 +27,31 @@ export default defineConfig({
         theme_color: "#0F172A",
         background_color: "#0F172A",
         display: "standalone",
-        orientation: "any",                    // ← Fixed here
-        scope: base,
-        start_url: base,
+        orientation: "any",
+        scope: GITHUB_REPO_BASE,
+        start_url: GITHUB_REPO_BASE,
         categories: ["education", "books"],
         icons: [
-          { src: `${base}icons/icon-192.png`, sizes: "192x192", type: "image/png" },
-          { src: `${base}icons/icon-512.png`, sizes: "512x512", type: "image/png" },
-          { src: `${base}icons/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: `${GITHUB_REPO_BASE}icons/icon-192.png`, sizes: "192x192", type: "image/png" },
+          { src: `${GITHUB_REPO_BASE}icons/icon-512.png`, sizes: "512x512", type: "image/png" },
+          { src: `${GITHUB_REPO_BASE}icons/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         shortcuts: [
           {
             name: "Continue Studying",
-            url: `${base}studies`,
-            icons: [{ src: `${base}icons/icon-192.png`, sizes: "192x192" }],
+            url: `${GITHUB_REPO_BASE}studies`,
+            icons: [{ src: `${GITHUB_REPO_BASE}icons/icon-192.png`, sizes: "192x192" }],
           },
           {
             name: "Bible Reader",
-            url: `${base}bible`,
-            icons: [{ src: `${base}icons/icon-192.png`, sizes: "192x192" }],
+            url: `${GITHUB_REPO_BASE}bible`,
+            icons: [{ src: `${GITHUB_REPO_BASE}icons/icon-192.png`, sizes: "192x192" }],
           },
         ],
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        navigateFallback: `${base}index.html`,
+        navigateFallback: `${GITHUB_REPO_BASE}index.html`,
         navigateFallbackAllowlist: [/^\/(?!api\/).*/],
         runtimeCaching: [
           {
@@ -94,9 +94,11 @@ export default defineConfig({
       },
     }),
   ],
+
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+
   build: {
     target: "es2020",
     rollupOptions: {
