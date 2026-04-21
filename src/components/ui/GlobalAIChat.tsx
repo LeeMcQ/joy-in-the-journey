@@ -1,53 +1,45 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Sparkles } from "lucide-react";
+import { Sparkles, Send, Loader2, ChevronDown } from "lucide-react";
+import { useTheme } from "@/components/ui/ThemeProvider";
 import { cn } from "@/lib/utils";
 import {
   chatWithAI,
+  getStoredProvider,
+  hasAnyKey,
+  PROVIDERS,
   type ChatMessage,
   type ProviderId,
-  getStoredProvider,
 } from "@/lib/aiProvider";
+import { AIKeySetup } from "@/components/ui/AIKeySetup";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  initialVerse?: string;
-  systemPrompt?: string;
 }
 
-export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function GlobalAIChat({ open, onClose }: Props) {
+  const { isDark } = useTheme();
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedProvider] = useState<ProviderId>(() => getStoredProvider() || "groq");
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const abortController = useRef<AbortController | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Show welcome screen when opened from main AI icon
+  // Focus input when opened
   useEffect(() => {
-    if (open && messages.length === 0) {
-      if (initialVerse) {
-        // From BiblePopup
-        const welcome: ChatMessage = {
-          role: "assistant",
-          content: `Hi! I'm here to help you study **${initialVerse}**. ${systemPrompt || "What would you like to explore?"}`,
-        };
-        setMessages([welcome]);
-      } else {
-        // Main screen → your original welcome screen
-        setMessages([]);
-      }
-    }
-  }, [open, initialVerse, systemPrompt, messages.length]);
+    if (open) inputRef.current?.focus();
+  }, [open]);
 
-  // Reset when closed
+  // Reset messages when closed
   useEffect(() => {
     if (!open) {
       setMessages([]);
@@ -55,135 +47,168 @@ export function GlobalAIChat({ open, onClose, initialVerse, systemPrompt }: Prop
     }
   }, [open]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (providerId?: ProviderId) => {
+    const text = input.trim();
+    if (!text) return;
 
-    const userMessage: ChatMessage = { role: "user", content: input.trim() };
-    setMessages((prev) => [...prev, userMessage]);
+    const pid = providerId ?? getStoredProvider();
+    if (!pid || !hasAnyKey()) {
+      setShowSetup(true);
+      return;
+    }
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput("");
-    setIsLoading(true);
+    setLoading(true);
 
-    if (abortController.current) abortController.current.abort();
-    abortController.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
-      const response = await chatWithAI(
-        selectedProvider,
-        [...messages, userMessage],
-        abortController.current.signal
-      );
-
-      const assistantMessage: ChatMessage = { role: "assistant", content: response };
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err: any) {
-      if (err.name === "AbortError") return;
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Sorry, I couldn't get a response. Please check your API key." },
+      const reply = await chatWithAI(pid, newMessages, controller.signal);
+      setMessages([...newMessages, { role: "assistant", content: reply }]);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setMessages([
+        ...newMessages,
+        { role: "assistant", content: `Sorry, something went wrong: ${err instanceof Error ? err.message : "Unknown error"}` },
       ]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      abortRef.current = null;
     }
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const providerName = (() => {
+    const pid = getStoredProvider();
+    return PROVIDERS.find((p) => p.id === pid)?.name ?? "AI";
+  })();
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-[#0a1428] z-[9999] flex flex-col">
-      {/* Top Bar */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white/10 rounded-2xl flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-amber-300" />
-          </div>
-          <div>
-            <span className="text-white font-semibold">Ask AI</span>
-            <span className="text-white/60 text-sm ml-1">via {selectedProvider.toUpperCase()}</span>
-          </div>
-        </div>
+    <>
+      {showSetup && (
+        <AIKeySetup
+          onComplete={(pid) => {
+            setShowSetup(false);
+            handleSend(pid);
+          }}
+          onSkip={() => setShowSetup(false)}
+        />
+      )}
 
-        <div className="flex items-center gap-4">
-          <button className="text-white/70 hover:text-white text-xl">⚙️</button>
-          <button className="text-white/70 hover:text-white text-xl">🎤</button>
-          <button
-            onClick={onClose}
-            className="text-white/70 hover:text-white text-2xl leading-none"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
+      {/* Collapsed bar (shown when chat is open but we keep the old floating look) */}
+      {/* You can remove this if you only want the full expanded view */}
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-auto p-6" ref={scrollRef}>
-        {/* Original Welcome Screen (when opened from main AI icon) */}
-        {messages.length === 0 && !initialVerse && (
-          <div className="h-full flex flex-col items-center justify-center text-center">
-            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mb-8">
-              <Sparkles className="w-14 h-14 text-amber-300" />
+      {/* Expanded chat - full screen modal */}
+      <div className="fixed inset-0 z-[150] flex flex-col">
+        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+        <div
+          className={cn(
+            "relative z-10 mt-auto w-full max-w-lg mx-auto",
+            "flex flex-col max-h-[85dvh]",
+            "rounded-t-3xl safe-bottom animate-slide-up",
+            isDark ? "bg-navy-700" : "bg-elevated"
+          )}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-theme">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-gold-500" />
+              <span className="text-sm font-semibold">Ask AI</span>
+              <span className="text-muted text-2xs">via {providerName}</span>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-3">Bible Study Assistant</h1>
-            <p className="text-white/70 max-w-xs leading-relaxed">
-              Ask any Bible or faith question. I'll answer in plain English with Scripture references.
-            </p>
+            <div className="flex items-center gap-1">
+              {messages.length > 0 && (
+                <button
+                  onClick={() => setMessages([])}
+                  className="rounded-lg px-2 py-1 text-2xs font-semibold text-muted active:opacity-70"
+                >
+                  Clear
+                </button>
+              )}
+              <button onClick={onClose} className="rounded-full p-2 active:opacity-70">
+                <ChevronDown size={18} className="text-muted" />
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* Chat Messages */}
-        {messages.length > 0 && (
-          <div className="space-y-6 max-w-2xl mx-auto">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-hide">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <Sparkles size={28} className="text-gold-500/30" />
+                <p className="text-muted text-sm">Ask any Bible or faith question.</p>
+                <p className="text-muted text-xs max-w-[240px]">
+                  I'll answer in plain English with Scripture references.
+                </p>
+              </div>
+            )}
+
             {messages.map((msg, i) => (
               <div
                 key={i}
                 className={cn(
-                  "flex",
-                  msg.role === "user" ? "justify-end" : "justify-start"
+                  "rounded-2xl px-4 py-3 text-[14px] leading-[1.7] whitespace-pre-line",
+                  msg.role === "user"
+                    ? "ml-8 bg-gold-500/10 text-secondary"
+                    : cn("mr-4", isDark ? "bg-navy-800/70" : "bg-surface", "text-secondary")
                 )}
               >
-                <div
-                  className={cn(
-                    "max-w-[80%] rounded-3xl px-6 py-4 text-base",
-                    msg.role === "user"
-                      ? "bg-amber-300 text-[#0a1428]"
-                      : "bg-white/10 text-white"
-                  )}
-                >
-                  {msg.content}
-                </div>
+                {msg.role === "assistant" && (
+                  <p className="text-2xs font-bold text-gold-500/60 mb-1">
+                    <Sparkles size={9} className="inline mr-1" />
+                    {providerName}
+                  </p>
+                )}
+                {msg.content}
               </div>
             ))}
 
-            {isLoading && (
-              <div className="flex items-center gap-3 text-white/60">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Thinking...
+            {loading && (
+              <div className={cn("mr-4 rounded-2xl px-4 py-3", isDark ? "bg-navy-800/70" : "bg-surface")}>
+                <Loader2 size={16} className="animate-spin text-gold-500" />
               </div>
             )}
-          </div>
-        )}
-      </div>
 
-      {/* Bottom Input Bar */}
-      <div className="p-6 border-t border-white/10 bg-[#0a1428]">
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask a Bible question..."
-            className="flex-1 bg-white/10 border border-white/20 focus:border-amber-300 rounded-3xl px-6 py-5 text-white placeholder:text-white/50 outline-none"
-            disabled={isLoading}
-          />
-          <button
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            className="w-14 h-14 bg-amber-300 hover:bg-amber-400 text-[#0a1428] rounded-3xl flex items-center justify-center transition-colors disabled:opacity-50"
-          >
-            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
-          </button>
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Bar */}
+          <div className="border-t border-theme px-4 py-3">
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask a Bible question…"
+                className="input flex-1 !rounded-xl !py-2.5"
+                disabled={loading}
+              />
+              <button
+                onClick={() => handleSend()}
+                disabled={loading || !input.trim()}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-500 text-navy-900 active:scale-[0.93] disabled:opacity-30"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
