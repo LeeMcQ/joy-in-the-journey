@@ -64,7 +64,6 @@ export async function fetchVerses(
 
   const data: BibleApiResponse = await res.json();
 
-  // Normalise — API sometimes returns slightly different shapes
   if (!data.verses) {
     data.verses = [];
   }
@@ -75,7 +74,6 @@ export async function fetchVerses(
 
 /**
  * Fetch a reference in multiple free translations at once.
- * Returns a map of translation id → response (or error).
  */
 export async function fetchMultiTranslation(
   reference: string,
@@ -118,37 +116,102 @@ export function bibleGatewayUrl(
 /*  FULL BIBLE OFFLINE STORAGE                                        */
 /* ================================================================== */
 
+const FULL_BIBLE_DB_NAME = "joy-journey-bible";
 const FULL_BIBLE_STORE = "full-bibles";
 
 async function getFullBibleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("joy-journey-bible", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(FULL_BIBLE_STORE);
+    const req = indexedDB.open(FULL_BIBLE_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(FULL_BIBLE_STORE)) {
+        db.createObjectStore(FULL_BIBLE_STORE);
+      }
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-/** Fetch full Bible JSON directly from your website */
+/**
+ * Fetch full Bible JSON from your public/bibles/ folder.
+ * Uses Vite's BASE_URL so it works on GitHub Pages (/joy-in-the-journey/)
+ * as well as locally (/).
+ */
 export async function fetchFullBible(version: string = "kjv"): Promise<any> {
-  const res = await fetch(`/bibles/${version}.json`);
-  if (!res.ok) throw new Error("Failed to load Bible JSON");
+  // import.meta.env.BASE_URL is set by vite.config.ts base option.
+  // On GitHub Pages this becomes "/joy-in-the-journey/".
+  // On localhost this is "/".
+  const base = import.meta.env.BASE_URL ?? "/";
+  // Normalise: ensure base ends with /
+  const normalised = base.endsWith("/") ? base : `${base}/`;
+  const url = `${normalised}bibles/${version.toLowerCase()}.json`;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to download ${version.toUpperCase()} Bible (HTTP ${res.status}). ` +
+      `Tried: ${url} — make sure public/bibles/${version.toLowerCase()}.json exists.`
+    );
+  }
   return res.json();
 }
 
 /** Save full Bible to IndexedDB */
-export async function saveFullBibleToDB(version: string, data: any) {
+export async function saveFullBibleToDB(version: string, data: any): Promise<void> {
   const db = await getFullBibleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(FULL_BIBLE_STORE, "readwrite");
-    tx.objectStore(FULL_BIBLE_STORE).put(data, version);
-    tx.oncomplete = () => resolve(true);
+    tx.objectStore(FULL_BIBLE_STORE).put(data, version.toLowerCase());
+    tx.oncomplete = () => {
+      // Also set the localStorage flag so isFullBibleDownloaded() works instantly
+      localStorage.setItem(`fullBible_${version.toLowerCase()}`, "true");
+      resolve();
+    };
     tx.onerror = () => reject(tx.error);
   });
 }
 
-/** Check if full Bible is already downloaded */
+/**
+ * Check if a full Bible has been downloaded.
+ * Checks localStorage flag (fast, sync) set by saveFullBibleToDB.
+ */
 export function isFullBibleDownloaded(version: string): boolean {
-  // Simple check – you can make this more robust later with Zustand if you want
-  return localStorage.getItem(`fullBible_${version}`) === "true";
+  return localStorage.getItem(`fullBible_${version.toLowerCase()}`) === "true";
+}
+
+/**
+ * Try to read a verse from the locally-downloaded full Bible in IndexedDB.
+ * Returns null if not downloaded or verse not found.
+ */
+export async function getVerseFromLocalBible(
+  version: string,
+  bookName: string,
+  chapter: number,
+  verse: number,
+): Promise<string | null> {
+  if (!isFullBibleDownloaded(version)) return null;
+  try {
+    const db = await getFullBibleDB();
+    const data: any = await new Promise((resolve, reject) => {
+      const tx = db.transaction(FULL_BIBLE_STORE, "readonly");
+      const req = tx.objectStore(FULL_BIBLE_STORE).get(version.toLowerCase());
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror = () => reject(req.error);
+    });
+    if (!data) return null;
+    // Support common JSON shapes:
+    // Shape A: data[bookName][chapter][verse] = "text"
+    // Shape B: data.books[bookIndex].chapters[ch].verses[v] = "text"
+    const byBook = data[bookName] ?? data[bookName.toLowerCase()];
+    if (byBook) {
+      const byChapter = byBook[chapter] ?? byBook[String(chapter)];
+      if (byChapter) {
+        return byChapter[verse] ?? byChapter[String(verse)] ?? null;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
