@@ -32,7 +32,6 @@ export const LOCAL_TRANSLATIONS: TranslationInfo[] = [
   { id: "asv", name: "ASV", fullName: "American Standard Version (1901)", downloadable: true },
 ];
 
-/** Online-only translations — linked to BibleGateway */
 export interface OnlineTranslation {
   id: string;
   name: string;
@@ -49,7 +48,7 @@ export function bibleGatewayUrl(ref: string, gatewayId: string): string {
   return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(ref)}&version=${gatewayId}`;
 }
 
-/* ── IDB Cache ────────────────────────────────────────── */
+/* ── IndexedDB chapter cache ──────────────────────────── */
 
 const DB_NAME = "joy-bible-cache";
 const STORE_NAME = "chapters";
@@ -95,88 +94,98 @@ async function setInCache(key: string, verses: LocalVerse[]): Promise<void> {
   } catch { /* silently fail */ }
 }
 
-/* ── Base URL helper (GitHub Pages safe) ─────────────── */
+/* ── Base URL (GitHub Pages safe) ────────────────────── */
 
-/**
- * Returns the correct base path for fetching files from /public/.
- * On GitHub Pages: "/joy-in-the-journey/"
- * On localhost:    "/"
- */
 function getBaseUrl(): string {
   const base = import.meta.env.BASE_URL ?? "/";
   return base.endsWith("/") ? base : `${base}/`;
 }
 
-/* ── Fetch from local JSON file (public/bibles/) ─────── */
+/* ═══════════════════════════════════════════════════════
+   IN-MEMORY FULL BIBLE CACHE
+   ═══════════════════════════════════════════════════════
+   Your JSON files use this exact shape:
+     {
+       "metadata": { ... },
+       "verses": [
+         { "book_name": "Genesis", "book": 1, "chapter": 1, "verse": 1, "text": "..." },
+         ...
+       ]
+     }
 
-/**
- * Try to load a chapter from the pre-built Bible JSON files in public/bibles/.
- * Returns verses array or null if unavailable.
- *
- * Expected JSON shape (bible-json / Bolls-compatible):
- *   { "Genesis": { "1": { "1": "In the beginning...", "2": "..." } } }
- *   OR array shape from other converters — we handle both.
+   We load the whole file once (6MB) and keep it in memory.
+   This means the first read costs one network round-trip;
+   every subsequent chapter/verse lookup is instant.
  */
-async function fetchChapterFromLocalJson(
-  bookName: string,
-  chapter: number,
+
+const fullBibleMemoryCache = new Map<TranslationId, LocalVerse[]>();
+
+async function loadFullBibleIntoMemory(
   translation: TranslationId,
+  signal?: AbortSignal,
 ): Promise<LocalVerse[] | null> {
+  // Already loaded this session
+  if (fullBibleMemoryCache.has(translation)) {
+    return fullBibleMemoryCache.get(translation)!;
+  }
+
   try {
-    const base = getBaseUrl();
-    const url = `${base}bibles/${translation.toLowerCase()}.json`;
-    const res = await fetch(url);
+    const url = `${getBaseUrl()}bibles/${translation.toLowerCase()}.json`;
+    const res = await fetch(url, signal ? { signal } : undefined);
     if (!res.ok) return null;
+
     const data: any = await res.json();
 
-    // Shape A: { BookName: { "chapterNum": { "verseNum": "text" } } }
-    const bookData = data[bookName] ?? data[bookName.toLowerCase()];
-    if (bookData) {
-      const chapterData = bookData[chapter] ?? bookData[String(chapter)];
-      if (chapterData && typeof chapterData === "object") {
-        const verses: LocalVerse[] = Object.entries(chapterData).map(([vNum, text]) => ({
-          book: bookName,
-          chapter,
-          verse: parseInt(vNum, 10),
-          text: String(text).trim(),
-        }));
-        verses.sort((a, b) => a.verse - b.verse);
-        return verses.length > 0 ? verses : null;
-      }
-    }
+    // ── Handle your actual shape: { metadata, verses: [...] } ──
+    const rawVerses: any[] | null = Array.isArray(data)
+      ? data           // bare array (just in case)
+      : (data.verses ?? null); // ← YOUR actual shape
 
-    // Shape B: array of books [ { name, chapters: [ { chapter, verses: [{verse, text}] } ] } ]
-    if (Array.isArray(data)) {
-      const bookEntry = data.find(
-        (b: any) => b.name?.toLowerCase() === bookName.toLowerCase()
-      );
-      if (bookEntry?.chapters) {
-        const chEntry = bookEntry.chapters.find((c: any) => c.chapter === chapter || c.chapter === String(chapter));
-        if (chEntry?.verses) {
-          return (chEntry.verses as any[]).map((v: any) => ({
-            book: bookName,
-            chapter,
-            verse: typeof v.verse === "number" ? v.verse : parseInt(v.verse, 10),
-            text: String(v.text).trim(),
-          }));
-        }
-      }
-    }
+    if (!rawVerses || rawVerses.length === 0) return null;
 
-    return null;
+    const verses: LocalVerse[] = rawVerses.map((v: any) => ({
+      book: String(v.book_name ?? ""),
+      chapter: Number(v.chapter),
+      verse: Number(v.verse),
+      text: String(v.text ?? "")
+        .replace(/\[([^\]]*)\]/g, "$1")  // [word] → word  (KJV supplied words)
+        .replace(/¶\s*/g, "")            // strip paragraph pilcrow marks
+        .trim(),
+    }));
+
+    fullBibleMemoryCache.set(translation, verses);
+    return verses;
   } catch {
     return null;
   }
 }
 
-/* ── Fetch with retry + backoff ───────────────────────── */
+/* ── Get one chapter from the in-memory Bible ─────────── */
+
+async function fetchChapterFromLocalJson(
+  bookName: string,
+  chapter: number,
+  translation: TranslationId,
+): Promise<LocalVerse[] | null> {
+  const all = await loadFullBibleIntoMemory(translation);
+  if (!all) return null;
+
+  const filtered = all.filter(
+    (v) =>
+      v.chapter === chapter &&
+      v.book.toLowerCase() === bookName.toLowerCase(),
+  );
+
+  return filtered.length > 0 ? filtered : null;
+}
+
+/* ── Online API helpers ───────────────────────────────── */
 
 interface ApiVerse { book_name: string; chapter: number; verse: number; text: string; }
 interface ApiResponse { reference: string; verses: ApiVerse[]; text: string; }
 
 async function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
-/** bible-api.com supported translations */
 const BIBLE_API_TRANSLATIONS = new Set<TranslationId>(["kjv", "web"]);
 
 async function fetchFromApi(
@@ -188,8 +197,7 @@ async function fetchFromApi(
     return fetchFromBolls(reference, translation, retries);
   }
 
-  const encoded = encodeURIComponent(reference);
-  const url = `https://bible-api.com/${encoded}?translation=${translation}`;
+  const url = `https://bible-api.com/${encodeURIComponent(reference)}?translation=${translation}`;
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -208,7 +216,6 @@ async function fetchFromApi(
   throw new Error("Max retries reached");
 }
 
-/** bolls.life API — supports ASV and many other translations */
 const BOLLS_TRANSLATION_MAP: Record<string, string> = { asv: "ASV" };
 
 async function fetchFromBolls(
@@ -250,8 +257,14 @@ async function fetchFromBolls(
       return verses;
     } catch (err) {
       if (attempt < retries - 1) { await sleep(1000 * (attempt + 1)); continue; }
+      // Last resort: try bible-api.com
       try {
-        return await fetchFromBibleApi(reference, translation);
+        const res2 = await fetch(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${translation}`);
+        if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+        const d2: ApiResponse = await res2.json();
+        return (d2.verses ?? []).map((v) => ({
+          book: v.book_name, chapter: v.chapter, verse: v.verse, text: v.text.trim(),
+        }));
       } catch {
         throw err;
       }
@@ -260,94 +273,82 @@ async function fetchFromBolls(
   throw new Error("Max retries reached");
 }
 
-async function fetchFromBibleApi(reference: string, translation: TranslationId): Promise<LocalVerse[]> {
-  const encoded = encodeURIComponent(reference);
-  const url = `https://bible-api.com/${encoded}?translation=${translation}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data: ApiResponse = await res.json();
-  return (data.verses ?? []).map((v) => ({
-    book: v.book_name, chapter: v.chapter, verse: v.verse, text: v.text.trim(),
-  }));
-}
-
 /* ── Public: Get chapter ──────────────────────────────── */
-
+/*
+ * Priority:
+ *   1. IndexedDB  (previously cached — instant, fully offline)
+ *   2. Local JSON (public/bibles/<id>.json — offline after first load)
+ *   3. Online API (bible-api.com / bolls.life — needs internet)
+ */
 export async function getChapter(
-  bookName: string, chapter: number, translation: TranslationId = "kjv",
+  bookName: string,
+  chapter: number,
+  translation: TranslationId = "kjv",
 ): Promise<VerseResult> {
   const key = cacheKey(translation, bookName, chapter);
 
-  // 1. Check IDB cache first
+  // 1. IDB
   const cached = await getFromCache(key);
   if (cached && cached.length > 0) {
     return { reference: `${bookName} ${chapter}`, translation, verses: cached, text: cached.map((v) => v.text).join(" ") };
   }
 
-  // 2. Try local JSON file (public/bibles/<translation>.json)
-  const localVerses = await fetchChapterFromLocalJson(bookName, chapter, translation);
-  if (localVerses && localVerses.length > 0) {
-    await setInCache(key, localVerses);
-    return { reference: `${bookName} ${chapter}`, translation, verses: localVerses, text: localVerses.map((v) => v.text).join(" ") };
+  // 2. Local JSON
+  const local = await fetchChapterFromLocalJson(bookName, chapter, translation);
+  if (local && local.length > 0) {
+    await setInCache(key, local);
+    return { reference: `${bookName} ${chapter}`, translation, verses: local, text: local.map((v) => v.text).join(" ") };
   }
 
-  // 3. Fall back to online API
+  // 3. Online API
   try {
     const verses = await fetchFromApi(`${bookName} ${chapter}`, translation);
     if (verses.length > 0) await setInCache(key, verses);
     return { reference: `${bookName} ${chapter}`, translation, verses, text: verses.map((v) => v.text).join(" ") };
   } catch (err) {
-    throw new Error(navigator.onLine
-      ? `Failed to load ${bookName} ${chapter}: ${err}`
-      : "You're offline. Download this Bible translation first, or connect to the internet.");
+    throw new Error(
+      navigator.onLine
+        ? `Failed to load ${bookName} ${chapter}: ${err}`
+        : "You're offline. Download this Bible translation first, or connect to the internet.",
+    );
   }
 }
 
 /* ── Public: Get verses ───────────────────────────────── */
 
 export async function getVerses(
-  bookName: string, chapter: number, verseStart: number, verseEnd?: number, translation: TranslationId = "kjv",
+  bookName: string,
+  chapter: number,
+  verseStart: number,
+  verseEnd?: number,
+  translation: TranslationId = "kjv",
 ): Promise<VerseResult> {
-  const key = cacheKey(translation, bookName, chapter);
   const end = verseEnd ?? verseStart;
+  const refStr = verseEnd
+    ? `${bookName} ${chapter}:${verseStart}-${verseEnd}`
+    : `${bookName} ${chapter}:${verseStart}`;
 
-  // 1. Check IDB cache
-  const cached = await getFromCache(key);
-  if (cached && cached.length > 0) {
-    const filtered = cached.filter((v) => v.verse >= verseStart && v.verse <= end);
-    const refStr = verseEnd ? `${bookName} ${chapter}:${verseStart}-${verseEnd}` : `${bookName} ${chapter}:${verseStart}`;
-    return { reference: refStr, translation, verses: filtered, text: filtered.map((v) => v.text).join(" ") };
-  }
+  const chapterResult = await getChapter(bookName, chapter, translation);
+  const filtered = chapterResult.verses.filter((v) => v.verse >= verseStart && v.verse <= end);
 
-  // 2. Try local JSON
-  const localVerses = await fetchChapterFromLocalJson(bookName, chapter, translation);
-  if (localVerses && localVerses.length > 0) {
-    await setInCache(key, localVerses);
-    const filtered = localVerses.filter((v) => v.verse >= verseStart && v.verse <= end);
-    const refStr = verseEnd ? `${bookName} ${chapter}:${verseStart}-${verseEnd}` : `${bookName} ${chapter}:${verseStart}`;
-    return { reference: refStr, translation, verses: filtered, text: filtered.map((v) => v.text).join(" ") };
-  }
-
-  // 3. Online API
-  const refStr = verseEnd ? `${bookName} ${chapter}:${verseStart}-${verseEnd}` : `${bookName} ${chapter}:${verseStart}`;
-  try {
-    const verses = await fetchFromApi(refStr, translation);
-    return { reference: refStr, translation, verses, text: verses.map((v) => v.text).join(" ") };
-  } catch (err) {
-    throw new Error(navigator.onLine ? `Failed: ${err}` : "Offline — download this Bible translation first.");
-  }
+  return { reference: refStr, translation, verses: filtered, text: filtered.map((v) => v.text).join(" ") };
 }
 
 /* ── Public: Lookup by raw reference ──────────────────── */
 
-export async function lookupReference(rawRef: string, translation: TranslationId = "kjv"): Promise<VerseResult> {
+export async function lookupReference(
+  rawRef: string,
+  translation: TranslationId = "kjv",
+): Promise<VerseResult> {
   const normalised = normaliseReference(rawRef);
   const m = normalised.match(/^(.+?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(\d+))?)?$/);
   if (!m) return { reference: rawRef, translation, verses: [], text: "" };
+
   const bookName = m[1].trim();
   const chapter = parseInt(m[2], 10);
   const verseStart = m[3] ? parseInt(m[3], 10) : undefined;
   const verseEnd = m[4] ? parseInt(m[4], 10) : undefined;
+
   if (verseStart != null) return getVerses(bookName, chapter, verseStart, verseEnd, translation);
   return getChapter(bookName, chapter, translation);
 }
@@ -377,73 +378,72 @@ export interface DownloadProgress {
 const TOTAL_CHAPTERS = BIBLE_BOOKS.reduce((s, b) => s + b.chapters, 0);
 
 /**
- * Download entire translation by fetching each chapter from:
- * 1. Local JSON file first (fast, no rate limiting) — public/bibles/<id>.json
- * 2. Online API as fallback per chapter
- * All chapters are stored in IndexedDB for offline use.
+ * Download and cache an entire Bible translation into IndexedDB.
+ *
+ * Your JSON shape: { metadata: {...}, verses: [{book_name, book, chapter, verse, text}] }
+ *
+ * Step 1: Fetch the full JSON from public/bibles/<id>.json (one fast request)
+ * Step 2: Group verses by book+chapter and store each group in IndexedDB
+ * Step 3: If JSON unavailable, fall back to chapter-by-chapter API (slow)
  */
 export async function downloadTranslation(
   translation: TranslationId,
   onProgress: (p: DownloadProgress) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  let done = 0;
-  onProgress({ total: TOTAL_CHAPTERS, done: 0, currentBook: "", status: "downloading" });
+  onProgress({ total: TOTAL_CHAPTERS, done: 0, currentBook: "Loading Bible file…", status: "downloading" });
 
-  // First try to load the full JSON file at once (much faster than chapter-by-chapter API)
-  try {
-    const base = getBaseUrl();
-    const url = `${base}bibles/${translation.toLowerCase()}.json`;
-    const res = await fetch(url, { signal });
+  // ── Try the local JSON file first ─────────────────────────────────
+  const allVerses = await loadFullBibleIntoMemory(translation, signal);
 
-    if (res.ok) {
-      const data: any = await res.json();
-      onProgress({ total: TOTAL_CHAPTERS, done: 0, currentBook: "Processing…", status: "downloading" });
+  if (allVerses && allVerses.length > 0) {
+    onProgress({ total: TOTAL_CHAPTERS, done: 0, currentBook: "Saving to device…", status: "downloading" });
 
-      for (const book of BIBLE_BOOKS) {
+    let done = 0;
+
+    for (const book of BIBLE_BOOKS) {
+      if (signal?.aborted) throw new Error("Cancelled");
+
+      for (let ch = 1; ch <= book.chapters; ch++) {
         if (signal?.aborted) throw new Error("Cancelled");
-        const bookData = data[book.name] ?? data[book.name.toLowerCase()];
-        if (bookData) {
-          for (let ch = 1; ch <= book.chapters; ch++) {
-            if (signal?.aborted) throw new Error("Cancelled");
-            const key = cacheKey(translation, book.name, ch);
-            const existing = await getFromCache(key);
-            if (!existing || existing.length === 0) {
-              const chData = bookData[ch] ?? bookData[String(ch)];
-              if (chData && typeof chData === "object") {
-                const verses: LocalVerse[] = Object.entries(chData).map(([vNum, text]) => ({
-                  book: book.name, chapter: ch, verse: parseInt(vNum, 10), text: String(text).trim(),
-                }));
-                verses.sort((a, b) => a.verse - b.verse);
-                if (verses.length > 0) await setInCache(key, verses);
-              }
-            }
-            done++;
-          }
-        } else {
-          // Book not found in JSON — count chapters as done anyway
-          done += book.chapters;
-        }
-        onProgress({ total: TOTAL_CHAPTERS, done, currentBook: book.name, status: "downloading" });
-      }
 
-      onProgress({ total: TOTAL_CHAPTERS, done: TOTAL_CHAPTERS, currentBook: "", status: "done" });
-      return;
+        const key = cacheKey(translation, book.name, ch);
+        const existing = await getFromCache(key);
+
+        if (!existing || existing.length === 0) {
+          const chapterVerses = allVerses.filter(
+            (v) =>
+              v.chapter === ch &&
+              v.book.toLowerCase() === book.name.toLowerCase(),
+          );
+          if (chapterVerses.length > 0) {
+            await setInCache(key, chapterVerses);
+          }
+        }
+
+        done++;
+
+        if (done % 10 === 0 || ch === book.chapters) {
+          onProgress({ total: TOTAL_CHAPTERS, done, currentBook: book.name, status: "downloading" });
+        }
+      }
     }
-  } catch (err: any) {
-    if (err?.name === "AbortError" || String(err).includes("Cancelled")) throw err;
-    // Local JSON not available — fall through to API download below
-    console.warn(`Local Bible JSON not available for ${translation}, falling back to API download.`);
+
+    onProgress({ total: TOTAL_CHAPTERS, done: TOTAL_CHAPTERS, currentBook: "", status: "done" });
+    return;
   }
 
-  // Fallback: download chapter-by-chapter from online API
-  done = 0;
+  // ── Fallback: chapter-by-chapter from online API ───────────────────
+  console.warn(`Local JSON unavailable for ${translation} — falling back to online API.`);
+
+  let done = 0;
   for (const book of BIBLE_BOOKS) {
     if (signal?.aborted) throw new Error("Cancelled");
     onProgress({ total: TOTAL_CHAPTERS, done, currentBook: book.name, status: "downloading" });
 
     for (let ch = 1; ch <= book.chapters; ch++) {
       if (signal?.aborted) throw new Error("Cancelled");
+
       const key = cacheKey(translation, book.name, ch);
       const existing = await getFromCache(key);
 
@@ -453,16 +453,18 @@ export async function downloadTranslation(
           if (verses.length > 0) await setInCache(key, verses);
           await sleep(300);
         } catch (err) {
-          console.warn(`Failed: ${book.name} ${ch} (${translation}):`, err);
+          console.warn(`Skipped ${book.name} ${ch} (${translation}):`, err);
           await sleep(2000);
         }
       }
+
       done++;
       if (ch % 3 === 0 || ch === book.chapters) {
         onProgress({ total: TOTAL_CHAPTERS, done, currentBook: book.name, status: "downloading" });
       }
     }
   }
+
   onProgress({ total: TOTAL_CHAPTERS, done, currentBook: "", status: "done" });
 }
 
@@ -476,7 +478,9 @@ export async function getCachedChapterCount(translation: TranslationId): Promise
       const req = tx.objectStore(STORE_NAME).getAllKeys();
       req.onsuccess = () => {
         const keys = req.result as string[];
-        resolve(keys.filter((k) => k.startsWith(`${translation}:`)).length);
+        const count = keys.filter((k) => k.startsWith(`${translation}:`)).length;
+        // Cap at TOTAL_CHAPTERS so the UI never shows > 100%
+        resolve(Math.min(count, TOTAL_CHAPTERS));
       };
       req.onerror = () => resolve(0);
     });
