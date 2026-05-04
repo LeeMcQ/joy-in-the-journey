@@ -100,11 +100,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
     if (reminderEnabled) {
       const granted = await requestNotificationPermission();
       setReminder(granted, reminderTime);
-
-      if (granted) {
-        // Schedule the first notification via service worker
-        scheduleReminder(reminderTime);
-      }
+      if (granted) scheduleReminder(reminderTime);
     } else {
       setReminder(false);
     }
@@ -112,16 +108,25 @@ export function StudyPlanSetup({ onComplete }: Props) {
     onComplete();
   };
 
-  return (
-    <>
-      {showAISetup && (
-        <AIKeySetup
-          onComplete={() => { setShowAISetup(false); handleFinish(); }}
-          onSkip={() => { setShowAISetup(false); handleFinish(); }}
-        />
-      )}
+  // If AIKeySetup is showing, render it at full z-index above everything
+  if (showAISetup) {
+    return (
+      <AIKeySetup
+        onComplete={(_providerId) => { setShowAISetup(false); handleFinish(); }}
+        onSkip={() => { setShowAISetup(false); handleFinish(); }}
+      />
+    );
+  }
 
-    <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center">
+  return (
+    /* ── FIX: z-[9999] ensures this is always above the bottom nav bar (z-50).
+       The bottom nav must never overlap the onboarding modal.
+       We use 100dvh (dynamic viewport height) so mobile browser chrome
+       doesn't cause overflow, and pb-safe adds padding above the home
+       indicator / gesture bar on notched phones. ── */
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center"
+         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
 
@@ -129,12 +134,19 @@ export function StudyPlanSetup({ onComplete }: Props) {
       <div
         className={cn(
           "relative z-10 w-full max-w-md animate-slide-up",
-          "flex max-h-[90dvh] flex-col overflow-hidden",
-          "rounded-t-3xl sm:rounded-3xl safe-bottom",
+          // FIX: max height uses dvh and leaves room for the nav bar.
+          // overflow-y-auto lets content scroll if steps are tall on small phones.
+          "flex flex-col overflow-y-auto",
+          "rounded-t-3xl sm:rounded-3xl",
+          // FIX: bottom padding ensures Back/Continue buttons are never
+          // behind the nav bar. 80px covers the nav + safe area on most devices.
+          "pb-[80px] sm:pb-0",
+          // Cap height so it never takes over the whole screen
+          "max-h-[calc(100dvh-env(safe-area-inset-top,0px))]",
           isDark ? "bg-navy-700" : "bg-elevated",
         )}
       >
-        {/* Handle */}
+        {/* Handle — only on mobile portrait */}
         <div className="flex justify-center py-3 sm:hidden">
           <div className="h-1 w-10 rounded-full bg-muted opacity-30" />
         </div>
@@ -200,10 +212,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
               Continue <ChevronRight size={16} />
             </button>
             <button
-              onClick={() => {
-                setupPlan("28days");
-                onComplete();
-              }}
+              onClick={() => { setupPlan("28days"); onComplete(); }}
               className="btn-ghost w-full text-sm"
             >
               Skip for now
@@ -243,7 +252,6 @@ export function StudyPlanSetup({ onComplete }: Props) {
                 </button>
               </div>
 
-              {/* Slider */}
               <input
                 type="range"
                 min={28}
@@ -285,7 +293,6 @@ export function StudyPlanSetup({ onComplete }: Props) {
               </p>
             </div>
 
-            {/* Toggle */}
             <button
               onClick={() => setReminderEnabled(!reminderEnabled)}
               className={cn(
@@ -330,7 +337,6 @@ export function StudyPlanSetup({ onComplete }: Props) {
               </div>
             </button>
 
-            {/* Time picker */}
             {reminderEnabled && (
               <div className="card card-surface animate-slide-up">
                 <p className="text-muted mb-2 text-2xs font-bold uppercase tracking-caps">
@@ -357,9 +363,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
 
             <div className="flex gap-3">
               <button
-                onClick={() =>
-                  setStep(selectedPace === "custom" ? "custom" : "pace")
-                }
+                onClick={() => setStep(selectedPace === "custom" ? "custom" : "pace")}
                 className="btn-secondary flex-1"
               >
                 Back
@@ -377,11 +381,10 @@ export function StudyPlanSetup({ onComplete }: Props) {
             <div className="text-center">
               <h2 className="font-display text-xl font-bold">Download Bibles</h2>
               <p className="text-muted mt-1 text-sm">
-                Save KJV, WEB & ASV for offline study
+                Save KJV & WEB for offline study
               </p>
             </div>
 
-            {/* Download cards */}
             {LOCAL_TRANSLATIONS.map((t) => {
               const isActive = dlProgress?.status === "downloading";
               return (
@@ -414,9 +417,14 @@ export function StudyPlanSetup({ onComplete }: Props) {
                   {dlProgress && dlProgress.status === "downloading" && (
                     <>
                       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface">
-                        <div className="h-full rounded-full bg-gold-500 transition-all duration-300" style={{ width: `${Math.round((dlProgress.done / dlProgress.total) * 100)}%` }} />
+                        <div
+                          className="h-full rounded-full bg-gold-500 transition-all duration-300"
+                          style={{ width: `${Math.round((dlProgress.done / dlProgress.total) * 100)}%` }}
+                        />
                       </div>
-                      <p className="text-muted mt-1 text-[11px]">{dlProgress.currentBook}… {dlProgress.done}/{dlProgress.total}</p>
+                      <p className="text-muted mt-1 text-[11px]">
+                        {dlProgress.currentBook}… {dlProgress.done}/{dlProgress.total}
+                      </p>
                     </>
                   )}
                 </div>
@@ -424,18 +432,18 @@ export function StudyPlanSetup({ onComplete }: Props) {
             })}
 
             {!navigator.onLine && (
-              <p className="text-amber-500 text-center text-[12px]">Connect to the internet to download.</p>
+              <p className="text-amber-500 text-center text-[12px]">
+                Connect to the internet to download.
+              </p>
             )}
 
             <p className="text-muted text-center text-[11px]">
               Downloads continue in the background. You can skip and download later from the Bible tab.
             </p>
 
-            <button
-              onClick={() => setStep("ai")}
-              className="btn-primary w-full"
-            >
-              <ChevronRight size={16} /> {dlProgress?.status === "downloading" ? "Continue (downloading…)" : "Continue"}
+            <button onClick={() => setStep("ai")} className="btn-primary w-full">
+              <ChevronRight size={16} />{" "}
+              {dlProgress?.status === "downloading" ? "Continue (downloading…)" : "Continue"}
             </button>
           </div>
         )}
@@ -452,12 +460,16 @@ export function StudyPlanSetup({ onComplete }: Props) {
 
             <div className="card card-gold">
               <p className="text-[13px] leading-relaxed text-secondary">
-                Each study question has an <strong className="text-gold-500">"Ask AI"</strong> button that explains verses, expands on your thoughts, and gives Bible references — all in plain English.
+                Each study question has an{" "}
+                <strong className="text-gold-500">"Ask AI"</strong> button that
+                explains verses, expands on your thoughts, and gives Bible
+                references — all in plain English.
               </p>
             </div>
 
             <p className="text-muted text-[12px] leading-relaxed">
-              You'll need a free API key from one of our providers. You can set this up now or later when you first tap "Ask AI" in a study.
+              You'll need a free API key from one of our providers. You can set
+              this up now or later when you first tap "Ask AI" in a study.
             </p>
 
             <div className="flex gap-3">
@@ -465,7 +477,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
                 Skip for now
               </button>
               <button
-                onClick={() => { setShowAISetup(true); }}
+                onClick={() => setShowAISetup(true)}
                 className="btn-primary flex-1"
               >
                 <Sparkles size={16} /> Set Up AI
@@ -475,7 +487,6 @@ export function StudyPlanSetup({ onComplete }: Props) {
         )}
       </div>
     </div>
-    </>
   );
 }
 
@@ -487,7 +498,6 @@ let _reminderTimeout: ReturnType<typeof setTimeout> | null = null;
 let _reminderInterval: ReturnType<typeof setInterval> | null = null;
 
 function scheduleReminder(time: string) {
-  // Clean up any existing timers first
   if (_reminderTimeout) clearTimeout(_reminderTimeout);
   if (_reminderInterval) clearInterval(_reminderInterval);
 
@@ -495,7 +505,6 @@ function scheduleReminder(time: string) {
   if (Notification.permission !== "granted") return;
 
   const [hours, minutes] = time.split(":").map(Number);
-
   const now = new Date();
   const next = new Date();
   next.setHours(hours, minutes, 0, 0);
@@ -513,17 +522,14 @@ function showStudyNotification() {
     const { getTodayStudy, getDayNumber } = useAppStore.getState();
     const study = getTodayStudy();
     const day = getDayNumber();
-
     if (!study) return;
 
     const url = `${window.location.origin}${import.meta.env.BASE_URL}study/${study.id}`;
-
     const notif = new Notification(`Day ${day}: ${study.title}`, {
       body: "Time for your daily Bible study!",
       icon: `${import.meta.env.BASE_URL}icons/icon-192.png`,
       tag: "daily-study",
     });
-
     notif.onclick = () => {
       window.focus();
       window.location.href = url;
