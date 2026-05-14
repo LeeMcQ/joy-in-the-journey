@@ -83,9 +83,12 @@ export function AskAIButton({
     <>
       {showSetup && (
         <AIKeySetup
-          onComplete={(pid) => { setShowSetup(false); handleAsk(pid); }}
-          onSkip={() => setShowSetup(false)}
-        />
+  onComplete={(pid) => { 
+    setShowSetup(false); 
+    handleAsk(pid as ProviderId);   // ← Type assertion
+  }}
+  onSkip={() => setShowSetup(false)}
+/>
       )}
 
       <div className="mt-2">

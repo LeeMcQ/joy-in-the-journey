@@ -99,12 +99,12 @@ export function GlobalAIChat({ open, onClose }: Props) {
     <>
       {showSetup && (
         <AIKeySetup
-          onComplete={(pid) => {
-            setShowSetup(false);
-            handleSend(pid);
-          }}
-          onSkip={() => setShowSetup(false)}
-        />
+  onComplete={(pid) => {
+    setShowSetup(false);
+    handleSend(pid as ProviderId);   // ← Type assertion
+  }}
+  onSkip={() => setShowSetup(false)}
+/>
       )}
 
       {/* Collapsed bar (shown when chat is open but we keep the old floating look) */}
