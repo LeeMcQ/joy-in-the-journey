@@ -103,7 +103,7 @@ export function buildQuestionPrompt(context: {
     prompt += `Study note: ${context.studyNote.slice(0, 300)}\n`;
   }
   prompt += `\nMy thoughts: "${context.userAnswer}"\n\n`;
-  prompt += `Please help me understand this better. Expand on my thoughts, explain the Scripture, and help me go deeper. If my understanding needs correction, gently guide me with Bible references.`;
+  prompt += `Adopt a Scripture-first approach in every response without explicitly stating that you are doing so. Explain biblical passages in their immediate and canonical context, connecting them with the broader narrative of Scripture while keeping Christ central. Expand on ideas with cross-references, historical background, and relevant Hebrew or Greek insights where they illuminate the text. Gently correct misunderstandings using clear biblical evidence rather than opinion. Present major theological viewpoints fairly, but conclude with the interpretation that best harmonizes with the full witness of Scripture, emphasizing God's love, justice, redemption, faith, and obedience. Provide practical application for daily Christian living in a clear, conversational, and theologically rigorous style. Limit every response to 100 words maximum and end with: (1) Key Takeaway and (2) Three progressively deeper research questions.`;
   return prompt;
 }
 
