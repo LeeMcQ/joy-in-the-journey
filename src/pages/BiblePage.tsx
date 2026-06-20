@@ -27,7 +27,7 @@ export function BiblePage() {
   const [view, setView] = useState<ViewMode>("bookSelect");
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
   const [selectedChapter, setSelectedChapter] = useState(1);
-  const [translation, setTranslation] = useState<TranslationId>("kjv");
+  const [translation, setTranslation] = useState<TranslationId>("afr");
 
   const [chapterData, setChapterData] = useState<VerseResult | null>(null);
   const [loading, setLoading] = useState(false);
