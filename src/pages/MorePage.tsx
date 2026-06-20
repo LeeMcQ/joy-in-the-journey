@@ -24,7 +24,6 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  ExternalLink,
   Loader2,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
@@ -35,12 +34,9 @@ import { useReadingStyle, FONT_LABELS } from "@/hooks/useReadingStyle";
 import { showToast } from "@/components/ui/Toast";
 import { isSoundEnabled, setSoundEnabled } from "@/lib/audio";
 import {
-  PROVIDERS,
-  getStoredKey,
-  getStoredProvider,
-  storeKey,
-  storeProvider,
-  type ProviderId,
+  getStoredMode,
+  storeMode,
+  type AIMode,
 } from "@/lib/aiProvider";
 import { cn } from "@/lib/utils";
 import type { AppSettings, FontFamily } from "@/data/types";
@@ -63,11 +59,11 @@ const FONT_CSS: Record<FontFamily, string> = {
 
 /**
  * Bible versions shown in the selector.
- * KJV, WEB, ASV = local/downloadable. GNB, ESV = online via BibleGateway.
+ * AFR, KJV, WEB = local/downloadable. GNB, ESV = online via BibleGateway.
  * The selector here only controls the MorePage preview & study display —
  * the BiblePage has its own translation switcher.
  */
-const bibleVersions = ["KJV", "WEB", "ASV", "GNB", "ESV"];
+const bibleVersions = ["AFR", "KJV", "WEB", "GNB", "ESV"];
 
 const PACE_LABELS: Record<string, string> = {
   "28days": "28 Days (1/day)",
@@ -111,7 +107,7 @@ export function MorePage() {
   const bookmarked = Object.values(progress).filter((p) => p.bookmarked).length;
 
   // Which versions can be downloaded locally (public/bibles/ files)
-  const downloadableVersions = ["KJV", "WEB", "ASV"];
+  const downloadableVersions = ["AFR", "KJV", "WEB"];
   const isDownloadable = downloadableVersions.includes(bibleVersion.toUpperCase());
 
   const handleDownloadBible = async () => {
@@ -228,7 +224,7 @@ export function MorePage() {
             Download the selected Bible version to use completely offline.
             {!isDownloadable && (
               <span className="mt-1 block text-amber-400">
-                {bibleVersion} is not available for download (online only). Switch to KJV, WEB, or ASV.
+                {bibleVersion} is not available for download (online only). Switch to AFR, KJV, or WEB.
               </span>
             )}
           </p>
@@ -331,7 +327,7 @@ export function MorePage() {
       {/* ── Bible Version ────────────────────────────────── */}
       <Section icon={BookOpen} title="Bible Version">
         <p className="text-[11px] text-muted mb-2">
-          KJV, WEB, ASV can be downloaded offline. GNB &amp; ESV open in BibleGateway.
+          AFR, KJV, WEB kan vanlyn afgelaai word. GNB &amp; ESV open in BibleGateway.
         </p>
         <div className="flex flex-wrap gap-2">
           {bibleVersions.map((v) => (
@@ -513,105 +509,47 @@ function Row({
 /* ── AI Settings sub-section ──────────────────────────── */
 
 function AISettingsSection() {
-  const [activeProvider, setActiveProvider] = useState<ProviderId | null>(() => getStoredProvider());
-  const [editingKey, setEditingKey] = useState(false);
-  const [keyInput, setKeyInput] = useState("");
+  const [mode, setMode] = useState<AIMode>(getStoredMode);
 
-  const currentProvider = PROVIDERS.find((p) => p.id === activeProvider);
-  const hasKey = activeProvider ? !!getStoredKey(activeProvider) : false;
-
-  const handleSelectProvider = (pid: ProviderId) => {
-    storeProvider(pid);
-    setActiveProvider(pid);
-    setKeyInput(getStoredKey(pid) ?? "");
-    setEditingKey(true);
-  };
-
-  const handleSaveKey = () => {
-    if (!activeProvider || !keyInput.trim()) return;
-    storeKey(activeProvider, keyInput.trim());
-    setEditingKey(false);
-    showToast(`${currentProvider?.name} key saved`, { type: "success" });
+  const handleMode = (m: AIMode) => {
+    setMode(m);
+    storeMode(m);
+    showToast(`AI mode set to ${m === "deep" ? "Deep" : "Normal"}`, { type: "success" });
   };
 
   return (
     <Section icon={Sparkles} title="AI Assistant">
       <p className="text-[12px] leading-relaxed text-muted">
-        Connect an AI to help explain Scripture in plain English. Your key is stored only on this device.
+        Choose how the AI responds. Switch anytime — your preference is saved.
       </p>
 
       <div className="grid grid-cols-2 gap-2">
-        {PROVIDERS.map((p) => (
+        {(["normal", "deep"] as AIMode[]).map((m) => (
           <button
-            key={p.id}
-            onClick={() => handleSelectProvider(p.id)}
+            key={m}
+            onClick={() => handleMode(m)}
             className={cn(
-              "card card-surface card-interactive flex flex-col items-center gap-1 py-2.5 text-center",
-              activeProvider === p.id && "bg-gold-500/5 ring-2 ring-gold-500/40",
+              "card card-surface card-interactive flex flex-col items-center gap-1 py-3 text-center",
+              mode === m && "bg-gold-500/5 ring-2 ring-gold-500/40",
             )}
           >
-            <span className="text-base">{p.emoji}</span>
-            <span className="text-[12px] font-semibold">{p.name}</span>
-            <span className={cn(
-              "rounded-full px-1.5 py-0.5 text-2xs font-bold",
-              p.tier === "free"
-                ? "bg-emerald-500/15 text-emerald-500"
-                : "bg-gold-500/10 text-gold-500",
-            )}>
-              {p.tier === "free" ? "Free" : "Paid"}
+            <span className="text-lg">{m === "normal" ? "⚡" : "🔬"}</span>
+            <span className="text-[13px] font-bold">
+              {m === "normal" ? "Normal" : "Deep"}
             </span>
+            <span className="text-[11px] text-muted leading-tight text-center px-1">
+              {m === "normal"
+                ? "Fast everyday answers"
+                : "Thorough research-grade responses"}
+            </span>
+            {mode === m && (
+              <span className="mt-1 rounded-full bg-gold-500/20 px-2 py-0.5 text-2xs font-bold text-gold-500">
+                Active
+              </span>
+            )}
           </button>
         ))}
       </div>
-
-      {activeProvider && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-secondary">
-              {currentProvider?.emoji} {currentProvider?.name}
-            </span>
-            {hasKey && !editingKey && (
-              <span className="text-[11px] font-semibold text-emerald-500">Connected ✓</span>
-            )}
-          </div>
-
-          {(editingKey || !hasKey) && (
-            <div className="flex flex-col gap-2">
-              <input
-                type="password"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="Paste API key…"
-                className="input font-mono text-sm"
-              />
-              <a
-                href={currentProvider?.keyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[11px] text-gold-500"
-              >
-                <ExternalLink size={10} /> {currentProvider?.keyHint}
-              </a>
-              <button
-                onClick={handleSaveKey}
-                className="btn-primary text-sm"
-                disabled={!keyInput.trim()}
-              >
-                Save Key
-              </button>
-            </div>
-          )}
-
-          {hasKey && !editingKey && (
-            <button
-              onClick={() => { setKeyInput(getStoredKey(activeProvider) ?? ""); setEditingKey(true); }}
-              className="btn-secondary text-xs"
-            >
-              Change Key
-            </button>
-          )}
-        </div>
-      )}
     </Section>
   );
 }
