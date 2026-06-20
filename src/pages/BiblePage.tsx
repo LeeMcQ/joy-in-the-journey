@@ -7,7 +7,7 @@ import {
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { cn } from "@/lib/utils";
-import { BIBLE_BOOKS, OT_BOOKS, NT_BOOKS, parseReference, type BibleBook } from "@/lib/bibleData";
+import { BIBLE_BOOKS, OT_BOOKS, NT_BOOKS, parseReference, getBookDisplayName, getTestamentLabel, type BibleBook } from "@/lib/bibleData";
 import { normaliseReference } from "@/lib/scriptureUtils";
 import {
   getChapter, lookupReference,
@@ -252,7 +252,7 @@ export function BiblePage() {
             <div className="mt-2 flex items-center gap-2 text-[11px]">
               <button onClick={() => setView("bookSelect")} className="font-medium text-muted active:text-gold-500">Bible</button>
               <ChevronRight size={10} className="opacity-40 text-muted" />
-              <button onClick={() => setView("chapterSelect")} className="font-medium text-muted active:text-gold-500">{selectedBook.name}</button>
+              <button onClick={() => setView("chapterSelect")} className="font-medium text-muted active:text-gold-500">{getBookDisplayName(selectedBook.name, translation)}</button>
               <ChevronRight size={10} className="opacity-40 text-muted" />
               <span className="font-semibold text-gold-500">Ch. {selectedChapter}</span>
             </div>
@@ -426,13 +426,15 @@ export function BiblePage() {
         {view === "bookSelect" && (
           <div className="flex flex-col gap-5 px-5 pt-4">
             <BookGrid
-              label="Old Testament"
+              label={getTestamentLabel("OT", translation)}
               books={OT_BOOKS}
+              translation={translation}
               onSelect={(b) => { setSelectedBook(b); setView("chapterSelect"); }}
             />
             <BookGrid
-              label="New Testament"
+              label={getTestamentLabel("NT", translation)}
               books={NT_BOOKS}
+              translation={translation}
               onSelect={(b) => { setSelectedBook(b); setView("chapterSelect"); }}
             />
           </div>
@@ -444,9 +446,11 @@ export function BiblePage() {
             <div className="flex items-center gap-3">
               <BookMarked size={18} className="text-gold-500" />
               <div>
-                <h2 className="font-display text-lg font-bold">{selectedBook.name}</h2>
+                <h2 className="font-display text-lg font-bold">
+                  {getBookDisplayName(selectedBook.name, translation)}
+                </h2>
                 <p className="text-[12px] text-muted">
-                  {selectedBook.chapters} chapters · {selectedBook.testament === "OT" ? "Old" : "New"} Testament
+                  {selectedBook.chapters} {translation === "afr" ? "hoofstukke" : "chapters"} · {getTestamentLabel(selectedBook.testament, translation)}
                 </p>
               </div>
             </div>
@@ -481,7 +485,7 @@ export function BiblePage() {
                 onClick={() => setView("chapterSelect")}
                 className="flex items-center gap-1.5 rounded-xl bg-surface px-4 py-2.5 active:opacity-70"
               >
-                <span className="font-display text-sm font-bold">{selectedBook.name} {selectedChapter}</span>
+                <span className="font-display text-sm font-bold">{getBookDisplayName(selectedBook.name, translation)} {selectedChapter}</span>
                 <ChevronDown size={14} className="text-muted" />
               </button>
               <button
@@ -581,15 +585,16 @@ function BookGrid({
   label,
   books,
   onSelect,
+  translation,
 }: {
   label: string;
   books: BibleBook[];
   onSelect: (b: BibleBook) => void;
+  translation: string;
 }) {
   return (
     <section>
       <h2 className="mb-3 text-xs font-bold uppercase tracking-caps text-gold-500">{label}</h2>
-      {/* 3 cols on mobile, 4 on sm+, 5 on md+ for desktop comfort */}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
         {books.map((book, i) => (
           <button
@@ -598,7 +603,9 @@ function BookGrid({
             className="card card-surface card-interactive animate-fade-in py-3 text-center"
             style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}
           >
-            <p className="text-[13px] font-semibold leading-snug">{book.name}</p>
+            <p className="text-[13px] font-semibold leading-snug">
+              {getBookDisplayName(book.name, translation)}
+            </p>
             <p className="mt-0.5 text-2xs text-muted">{book.chapters} ch.</p>
           </button>
         ))}
