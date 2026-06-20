@@ -9,19 +9,19 @@ import {
   WifiOff,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  PROVIDERS,
-  getStoredKey,
-  getStoredProvider,
+  getStoredMode,
+  storeMode,
+  streamWithAI,
+  type AIMode,
   type ChatMessage,
 } from "@/lib/aiProvider";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-type InlineTab = "kjv" | "web" | "esv";
+type InlineTab = "afr" | "kjv" | "web";
 
 interface BibleVerse {
   verse: number;
@@ -40,26 +40,20 @@ export interface BiblePopupProps {
   onOpenReader?: (ref: string) => void;
 }
 
-// ─── bible-api.com fetcher ────────────────────────────────────────────────
+// ─── Local Bible fetcher (AFR/KJV/WEB via IndexedDB → JSON → API) ────────
 
 async function fetchFromBibleApi(
   reference: string,
-  translation: "kjv" | "web" | "esv"
+  translation: "afr" | "kjv" | "web"
 ): Promise<VerseData | null> {
   try {
-    const encoded = encodeURIComponent(reference);
-    const res = await fetch(
-      `https://bible-api.com/${encoded}?translation=${translation}`
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data?.verses?.length) return null;
+    const { lookupReference } = await import("@/lib/localBible");
+    const result = await lookupReference(reference, translation);
+    if (!result.verses.length) return null;
     return {
-      reference: data.reference ?? reference,
-      translation: translation.toUpperCase(),
-      verses: (data.verses as Array<{ verse: number; text: string }>).map(
-        (v) => ({ verse: v.verse, text: v.text.trim() })
-      ),
+      reference: result.reference,
+      translation: translation.toUpperCase() as VerseData["translation"],
+      verses: result.verses.map((v) => ({ verse: v.verse, text: v.text })),
     };
   } catch {
     return null;
@@ -204,100 +198,13 @@ Provide three progressively deeper research questions:
 async function streamTheologyAI(
   reference: string,
   verseText: string,
+  mode: AIMode,
   onChunk: (text: string) => void,
   signal: AbortSignal
 ): Promise<void> {
   const prompt = buildTheologyPrompt(reference, verseText);
-
-  const storedId = getStoredProvider();
-  const orderedProviders = [
-    ...(storedId ? PROVIDERS.filter((p) => p.id === storedId) : []),
-    ...PROVIDERS.filter((p) => p.id !== storedId),
-  ];
-
-  for (const provider of orderedProviders) {
-    const key = getStoredKey(provider.id);
-    if (!key) continue;
-
-    const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-
-    try {
-      if (provider.id === "claude") {
-        const res = await fetch(provider.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": key,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            max_tokens: 4096,
-            stream: true,
-            messages,
-          }),
-          signal,
-        });
-        if (!res.ok || !res.body) continue;
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          for (const line of dec.decode(value).split("\n")) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const t = JSON.parse(line.slice(6))?.delta?.text ?? "";
-              if (t) onChunk(t);
-            } catch { /* skip */ }
-          }
-        }
-        return;
-      } else {
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        };
-        if (provider.id === "openrouter") {
-          headers["HTTP-Referer"] = "https://leemcq.github.io/joy-in-the-journey/";
-          headers["X-Title"] = "Joy in the Journey";
-        }
-        const res = await fetch(provider.endpoint, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            model: provider.model,
-            max_tokens: 4096,
-            stream: true,
-            messages,
-          }),
-          signal,
-        });
-        if (!res.ok || !res.body) continue;
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          for (const line of dec.decode(value).split("\n")) {
-            if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
-            try {
-              const t = JSON.parse(line.slice(6))?.choices?.[0]?.delta?.content ?? "";
-              if (t) onChunk(t);
-            } catch { /* skip */ }
-          }
-        }
-        return;
-      }
-    } catch (e) {
-      if ((e as Error).name === "AbortError") throw e;
-      continue;
-    }
-  }
-
-  throw new Error(
-    "No AI provider configured. Add an API key in More → Settings."
-  );
+  const messages: ChatMessage[] = [{ role: "user", content: prompt }];
+  await streamWithAI(mode, messages, onChunk, signal);
 }
 
 // ─── Markdown renderer ────────────────────────────────────────────────────
@@ -399,9 +306,9 @@ function BiblePopupInner({
   onClose: () => void;
   onOpenReader?: (ref: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<InlineTab>("kjv");
+  const [activeTab, setActiveTab] = useState<InlineTab>("afr");
   const [cache, setCache] = useState<Partial<Record<InlineTab, VerseData>>>({});
-  const [loading, setLoading] = useState<Partial<Record<InlineTab, boolean>>>({ kjv: true });
+  const [loading, setLoading] = useState<Partial<Record<InlineTab, boolean>>>({ afr: true });
   const [tabErr, setTabErr] = useState<Partial<Record<InlineTab, string>>>({});
   const [copied, setCopied] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
@@ -410,8 +317,20 @@ function BiblePopupInner({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCollapsed, setAiCollapsed] = useState(false);
+  const [aiMode, setAiMode] = useState<AIMode>(getStoredMode);
   const abortRef = useRef<AbortController | null>(null);
   const aiBodyRef = useRef<HTMLDivElement>(null);
+
+  const handleModeChange = (mode: AIMode) => {
+    setAiMode(mode);
+    storeMode(mode);
+    // Re-run if AI is already showing
+    if (showAi && !aiLoading) {
+      setAiText("");
+      setAiError(null);
+      handleAskAIWithMode(mode);
+    }
+  };
 
   // Online detection
   useEffect(() => {
@@ -437,14 +356,11 @@ function BiblePopupInner({
         } else {
           setTabErr((p) => ({
             ...p,
-            [tab]:
-              tab === "esv"
-                ? "ESV_EXTERNAL"
-                : "Verse not found. Check your connection.",
+            [tab]: "Vers nie gevind nie. Gaan u verbinding na.",
           }));
         }
       } catch {
-        setTabErr((p) => ({ ...p, [tab]: "Could not load verse." }));
+        setTabErr((p) => ({ ...p, [tab]: "Kon nie vers laai nie." }));
       } finally {
         setLoading((p) => ({ ...p, [tab]: false }));
       }
@@ -453,7 +369,7 @@ function BiblePopupInner({
   );
 
   useEffect(() => {
-    fetchVerse("kjv");
+    fetchVerse("afr");
   }, [reference, fetchVerse]);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
@@ -475,11 +391,11 @@ function BiblePopupInner({
     });
   };
 
-  const handleAskAI = async () => {
+  const handleAskAIWithMode = async (mode: AIMode) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
-    const d = cache[activeTab] ?? cache["kjv"];
+    const d = cache[activeTab] ?? cache["afr"];
     const verseText = d?.verses.map((v) => v.text).join(" ") ?? reference;
 
     setShowAi(true);
@@ -492,6 +408,7 @@ function BiblePopupInner({
       await streamTheologyAI(
         reference,
         verseText,
+        mode,
         (chunk) => {
           setAiText((prev) => prev + chunk);
           requestAnimationFrame(() => {
@@ -509,6 +426,8 @@ function BiblePopupInner({
     }
   };
 
+  const handleAskAI = () => handleAskAIWithMode(aiMode);
+
   const handleStopAI = () => {
     abortRef.current?.abort();
     setAiLoading(false);
@@ -517,7 +436,6 @@ function BiblePopupInner({
   const cur = cache[activeTab];
   const curLoad = loading[activeTab];
   const curErr = tabErr[activeTab];
-  const esvExternal = curErr === "ESV_EXTERNAL";
 
   return (
     <>
@@ -561,9 +479,9 @@ function BiblePopupInner({
         </div>
 
         <div className="flex items-center gap-2 px-5 pb-3 flex-shrink-0" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+          <TabBtn label="AFR" active={activeTab === "afr"} onClick={() => handleTab("afr")} />
           <TabBtn label="KJV" active={activeTab === "kjv"} onClick={() => handleTab("kjv")} />
           <TabBtn label="WEB" active={activeTab === "web"} onClick={() => handleTab("web")} />
-          <TabBtn label="ESV" active={activeTab === "esv"} onClick={() => handleTab("esv")} />
 
           <div className="w-px h-6 bg-white/15 mx-1 flex-shrink-0" />
 
@@ -601,21 +519,6 @@ function BiblePopupInner({
               <div className="flex items-center justify-center py-8">
                 <Loader2 size={24} className="animate-spin text-gold-400" />
               </div>
-            ) : esvExternal ? (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <p className="text-white/50 text-sm text-center">
-                  ESV is not available offline.
-                </p>
-                <a
-                  href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=ESV`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-500/15 text-gold-400 text-sm font-semibold hover:bg-gold-500/25 transition-colors"
-                >
-                  <ExternalLink size={14} />
-                  View ESV on Bible Gateway
-                </a>
-              </div>
             ) : curErr ? (
               <div className="text-center py-4">
                 <p className="text-white/50 text-sm">{curErr}</p>
@@ -643,11 +546,28 @@ function BiblePopupInner({
                 <div className="flex items-center gap-2">
                   <Sparkles size={13} className="text-gold-400" />
                   <span className="text-gold-400 text-xs font-bold tracking-wide uppercase">
-                    Theological Deep Dive
+                    AI Study
                   </span>
                   {aiLoading && (
                     <Loader2 size={11} className="animate-spin text-gold-400/60 ml-1" />
                   )}
+                  {/* Normal / Deep toggle */}
+                  <div className="flex items-center rounded-lg bg-white/8 p-0.5 ml-1">
+                    {(["normal", "deep"] as AIMode[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => handleModeChange(m)}
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-all",
+                          aiMode === m
+                            ? "bg-gold-500 text-navy-900"
+                            : "text-white/40 hover:text-white/60"
+                        )}
+                      >
+                        {m === "normal" ? "Normal" : "Deep"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {aiLoading && (
