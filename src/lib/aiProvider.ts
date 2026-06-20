@@ -1,91 +1,41 @@
 /* ================================================================== */
-/*  AI Provider System                                                */
-/*  4 providers: Groq & OpenRouter (free) first, Claude & ChatGPT     */
-/*  API keys stored in localStorage, never sent except to provider    */
+/*  AI Provider System                                                 */
+/*  All calls go through the Cloudflare Worker proxy.                 */
+/*  mode "normal"  → /normal  (fast everyday responses)              */
+/*  mode "deep"    → /deep    (thorough research-grade responses)     */
+/*  No API keys are ever stored or sent from the browser.             */
 /* ================================================================== */
 
-export type ProviderId = "groq" | "openrouter" | "claude" | "chatgpt";
+const PROXY_URL = (import.meta.env.VITE_AI_PROXY_URL as string | undefined) ?? "";
 
-export interface Provider {
-  id: ProviderId;
-  name: string;
-  model: string;
-  tier: "free" | "paid";
-  emoji: string;
-  keyUrl: string;
-  keyHint: string;
-  endpoint: string;
+export type AIMode = "normal" | "deep";
+
+/* ── Mode preference ───────────────────────────────────────────────── */
+
+const MODE_KEY = "joy-ai-mode";
+
+export function getStoredMode(): AIMode {
+  return (localStorage.getItem(MODE_KEY) as AIMode | null) ?? "normal";
 }
 
-export const PROVIDERS: Provider[] = [
-  {
-    id: "groq",
-    name: "Groq",
-    model: "llama-3.3-70b-versatile",
-    tier: "free",
-    emoji: "Lightning",
-    keyUrl: "https://console.groq.com/keys",
-    keyHint: "Get a free key at console.groq.com — no credit card needed.",
-    endpoint: "https://api.groq.com/openai/v1/chat/completions",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    model: "meta-llama/llama-3.1-8b-instruct:free",
-    tier: "free",
-    emoji: "Globe",
-    keyUrl: "https://openrouter.ai/keys",
-    keyHint: "Get a free key at openrouter.ai/keys — free models available.",
-    endpoint: "https://openrouter.ai/api/v1/chat/completions",
-  },
-  {
-    id: "claude",
-    name: "Claude",
-    model: "claude-sonnet-4-20250514",
-    tier: "paid",
-    emoji: "Brown Circle",
-    keyUrl: "https://console.anthropic.com/settings/keys",
-    keyHint: "Get your API key at console.anthropic.com",
-    endpoint: "https://api.anthropic.com/v1/messages",
-  },
-  {
-    id: "chatgpt",
-    name: "ChatGPT",
-    model: "gpt-4o-mini",
-    tier: "paid",
-    emoji: "Green Circle",
-    keyUrl: "https://platform.openai.com/api-keys",
-    keyHint: "Get your API key at platform.openai.com",
-    endpoint: "https://api.openai.com/v1/chat/completions",
-  },
+export function storeMode(mode: AIMode): void {
+  localStorage.setItem(MODE_KEY, mode);
+}
+
+/* ── Legacy stubs (kept so old imports don't break) ────────────────── */
+export type ProviderId = "normal" | "deep";
+export function getStoredProvider(): AIMode { return getStoredMode(); }
+export function storeProvider(id: AIMode): void { storeMode(id); }
+export function hasAnyKey(): boolean { return true; }
+export function getStoredKey(_: string): string | null { return "proxy"; }
+export function storeKey(_a: string, _b: string): void {}
+
+export const PROVIDERS = [
+  { id: "normal" as const, name: "Normal", emoji: "⚡", tier: "free" as const, description: "Fast everyday responses" },
+  { id: "deep"   as const, name: "Deep",   emoji: "🔬", tier: "free" as const, description: "Thorough research-grade responses" },
 ];
 
-/* ── Key storage ──────────────────────────────────────── */
-
-const STORAGE_PREFIX = "joy-ai-";
-
-export function getStoredKey(providerId: ProviderId): string | null {
-  return localStorage.getItem(`${STORAGE_PREFIX}key-${providerId}`);
-}
-
-export function storeKey(providerId: ProviderId, key: string): void {
-  localStorage.setItem(`${STORAGE_PREFIX}key-${providerId}`, key);
-}
-
-export function getStoredProvider(): ProviderId | null {
-  return localStorage.getItem(`${STORAGE_PREFIX}provider`) as ProviderId | null;
-}
-
-export function storeProvider(providerId: ProviderId): void {
-  localStorage.setItem(`${STORAGE_PREFIX}provider`, providerId);
-}
-
-export function hasAnyKey(): boolean {
-  return PROVIDERS.some((p) => !!getStoredKey(p.id));
-}
-
-
-/* ── Build contextual prompt for per-question AI ──────── */
+/* ── Prompt builder for study questions ────────────────────────────── */
 
 export function buildQuestionPrompt(context: {
   studyTitle: string;
@@ -107,79 +57,75 @@ export function buildQuestionPrompt(context: {
   return prompt;
 }
 
-/* ── Chat with AI ─────────────────────────────────────── */
+/* ── Message type ──────────────────────────────────────────────────── */
 
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
 
+/* ── Non-streaming chat ────────────────────────────────────────────── */
+
 export async function chatWithAI(
-  providerId: ProviderId,
+  mode: AIMode,
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  const provider = PROVIDERS.find((p) => p.id === providerId);
-  if (!provider) throw new Error(`Provider ${providerId} not found`);
+  if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
 
-  const key = getStoredKey(providerId);
-  if (!key) throw new Error(`No API key stored for ${provider.name}. Please set it up first.`);
+  const res = await fetch(`${PROXY_URL}/${mode}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, max_tokens: 1200, stream: false }),
+    signal,
+  });
 
-  const isOpenAICompatible = ["groq", "openrouter", "chatgpt"].includes(providerId);
-
-  if (isOpenAICompatible) {
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-
-    if (providerId === "openrouter") {
-      headers["HTTP-Referer"] = "https://leemcq.github.io/joy-in-the-journey/";
-      headers["X-Title"] = "Joy in the Journey";
-    }
-
-    headers["Authorization"] = `Bearer ${key}`;
-
-    const res = await fetch(provider.endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: provider.model,
-        messages,
-        temperature: 0.7,
-        max_tokens: 1200,
-      }),
-      signal,
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`API error (${res.status}): ${errorText}`);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.";
-  } else if (providerId === "claude") {
-    const res = await fetch(provider.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        max_tokens: 1200,
-        messages: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-      }),
-      signal,
-    });
-
-    if (!res.ok) throw new Error("Claude API error");
-
-    const data = await res.json();
-    return data.content?.[0]?.text || "Sorry, I couldn't get a response.";
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`AI error (${res.status}): ${err}`);
   }
 
-  throw new Error("Unsupported provider");
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "Sorry, I couldn't get a response.";
+}
+
+/* ── Streaming chat ────────────────────────────────────────────────── */
+
+export async function streamWithAI(
+  mode: AIMode,
+  messages: ChatMessage[],
+  onChunk: (text: string) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
+
+  const res = await fetch(`${PROXY_URL}/${mode}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, max_tokens: 4096, stream: true }),
+    signal,
+  });
+
+  if (!res.ok || !res.body) {
+    const err = await res.text();
+    throw new Error(`AI stream error (${res.status}): ${err}`);
+  }
+
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    for (const line of dec.decode(value).split("\n")) {
+      if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
+      try {
+        const json = JSON.parse(line.slice(6));
+        const chunk =
+          json?.choices?.[0]?.delta?.content ??
+          json?.delta?.text ?? "";
+        if (chunk) onChunk(chunk);
+      } catch { /* skip malformed lines */ }
+    }
+  }
 }
