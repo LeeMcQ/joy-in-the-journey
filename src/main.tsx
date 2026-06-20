@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
+import { autoInstallDefaultBible } from "@/lib/localBible";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -11,6 +12,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </React.StrictMode>,
 );
+
+/* ── Silent background install of AFR Bible ──────────── */
+// Runs after first render. Checks if the Afrikaans Bible is already
+// cached in IndexedDB; if not, fetches and stores it silently.
+window.addEventListener("load", () => {
+  setTimeout(() => autoInstallDefaultBible(), 2000);
+});
 
 /* ── PWA update handler ──────────────────────────────── */
 if ("serviceWorker" in navigator) {
