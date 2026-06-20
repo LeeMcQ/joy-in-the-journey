@@ -74,75 +74,129 @@ function buildTheologyPrompt(reference: string, verseText: string): string {
 The verse being studied is: **${reference}**
 "${verseText}"
 
-Guide me through it using this progressive structure:
+Guide me through this passage using the following progressive structure. Build each section upon the previous one, moving from simple understanding to deeper biblical insight. Keep Christ at the center and ensure every conclusion is supported by Scripture. Distinguish clearly between what the text explicitly states and reasonable theological implications. Skip any section that is not genuinely applicable rather than forcing an answer.
 
-**1. The Verse (Foundation)**
-Quote the verse exactly in KJV and ESV.
+1. Simple Meaning (Clarity First)
 
----
-
-**2. Immediate Context (Zoom Out Slightly)**
-Provide 2 verses before and after (KJV). Briefly explain what is happening in this passage in plain terms.
+Explain the passage in plain, modern language. What is the author directly saying? Avoid theological jargon.
 
 ---
 
-**3. Simple Meaning (Clarity First)**
-Explain the verse in clear, simple language. What is this verse saying directly? Avoid theological jargon.
+2. Deeper Meaning (Understanding the Message)
+
+Identify the central themes, spiritual principles, and doctrinal significance. Clearly distinguish:
+
+- What the text says
+- What the text teaches
+- What should not be inferred beyond the text
 
 ---
 
-**4. Deeper Meaning (Build Understanding)**
-Key themes, spiritual principles, and doctrinal significance. Distinguish what the text says vs what it teaches.
+3. Original Language Insight (Precision Layer)
+
+Highlight key Hebrew or Greek words by providing:
+
+- Original word
+- Transliteration
+- Literal meaning
+- Meaning within this context
+- Why the word choice matters
 
 ---
 
-**5. Original Language Insight (Precision Layer)**
-Key words in Hebrew/Greek: original term + transliteration + meaning in context.
+4. Biblical Context (Big Picture)
+
+Explain how this passage fits within:
+
+- The surrounding chapter
+- The overall purpose of the book
+- The unfolding biblical story of Creation, Fall, Redemption, and Restoration
 
 ---
 
-**6. Biblical Context (Big Picture)**
-Place the verse within the chapter, the book, and the Bible story (creation to fall to redemption to restoration).
+5. Spirit of Prophecy Insight
+
+Provide relevant insights from Ellen G. White that directly illuminate the passage, including the source reference. Use only where genuinely applicable.
 
 ---
 
-**7. Spirit of Prophecy Insight**
-Relevant insight from Ellen G. White directly tied to the verse, with source reference.
+6. Supporting Biblical Connections
+
+List key cross-references and briefly explain how each passage reinforces, expands, or balances the teaching.
 
 ---
 
-**8. Supporting Biblical Connections**
-Related verses with brief explanation of how they connect.
+7. Adventist Understanding
+
+Explain how Seventh-day Adventist theology understands this passage, especially regarding themes such as:
+
+- The Great Controversy
+- Law and Grace
+- The Sanctuary
+- The Sabbath
+- The State of the Dead
+- The Second Coming
+- The Character of God
+
+Include only themes relevant to the passage.
 
 ---
 
-**9. Adventist Understanding**
-How this verse is understood within SDA theology: Great Controversy, Law and Grace, Sanctuary if applicable.
+8. Broader Christian Perspective
+
+Briefly summarize how respected evangelical scholars (particularly John Piper and Desiring God) interpret or apply the passage when their insights add meaningful theological or practical value.
 
 ---
 
-**10. Broader Christian Perspective**
-Insight from John Piper only if it adds practical or theological value.
+9. Advanced Insights
+
+Where applicable, discuss:
+
+- Literary structure
+- Symbolism
+- Typology
+- Covenant themes
+- Messianic fulfillment
+- Prophetic significance
+- Daniel/Revelation or end-time connections
+
+Do not force these if absent.
 
 ---
 
-**11. Advanced Insights (Only if Present)**
-Literary structure, typology, prophetic or end-time connections (Daniel/Revelation) if relevant.
+10. Practical Application (Transformation)
+
+Explain how this passage should shape:
+
+- My understanding of God
+- My relationship with Christ
+- My character
+- My daily decisions
+- My spiritual walk and mission
+
+Provide specific, practical applications.
 
 ---
 
-**12. Practical Application (Transformation)**
-What does this mean for my life? What should change in thinking or behavior?
+11. Sermon Insight (Memorable Summary)
+
+Summarize the heart of the passage in 3–5 powerful sentences that capture its central message and can be remembered or taught to others.
 
 ---
 
-**13. Confidence Indicator**
-For key sections: High = clear and strongly supported | Medium = reasonable but interpretive | Low = speculative or debated.
+12. Key Takeaway
+
+State the single most important truth the passage teaches in one concise sentence.
 
 ---
 
-**14. Sermon Insight (Simple Summary)**
-3 to 5 lines capturing the core spiritual message.`;
+13. Further Study
+
+Provide three progressively deeper research questions:
+
+1. Understanding the text
+2. Exploring the theology
+3. Applying the truth to Christian living`;
 }
 
 // ─── AI Streaming ─────────────────────────────────────────────────────────
