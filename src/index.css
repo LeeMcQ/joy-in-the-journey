@@ -607,3 +607,38 @@ select:focus-visible {
   max-height: 100dvh;
   overflow-y: auto;
 }
+/* ================================================================== */
+/*  REC 3 — Poetry book formatting                                    */
+/* ================================================================== */
+
+.bible-poetry p {
+  font-style: italic;
+  letter-spacing: 0.01em;
+  padding-left: 1rem;
+  line-height: 2.2;
+}
+.bible-poetry sup { font-style: normal; }
+
+/* ================================================================== */
+/*  REC 7 — Accessibility: reduced motion + touch targets             */
+/* ================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-slide-up, .animate-fade-in, .animate-scale-in {
+    animation: none !important;
+  }
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
