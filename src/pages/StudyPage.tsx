@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Share2,
   PartyPopper,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/components/ui/ThemeProvider";
@@ -20,6 +21,10 @@ import { BiblePopup } from "@/components/study/BiblePopup";
 import { HighlightableText } from "@/components/study/HighlightableText";
 import { cn, countQuestions, studyLabel } from "@/lib/utils";
 import { feedbackComplete, feedbackBookmark, feedbackScripture, playNavBack, playNavForward } from "@/lib/audio";
+import { ShareModal } from "@/components/ui/ShareModal";
+import { showToast } from "@/components/ui/Toast";
+import { formatStudyCompletionMessage, shareOrCopy } from "@/lib/sharing";
+import { logGroupActivity } from "@/lib/studyGroups";
 
 export function StudyPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +55,7 @@ export function StudyPage() {
 
   /* ── Completion celebration ─────────────────────────── */
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   /* ── Mark started on mount ──────────────────────────── */
   useEffect(() => {
@@ -88,7 +94,8 @@ export function StudyPage() {
     feedbackComplete();
     setShowCelebration(true);
     clearTimeout(celebrationTimerRef.current);
-    celebrationTimerRef.current = setTimeout(() => setShowCelebration(false), 3000);
+    celebrationTimerRef.current = setTimeout(() => setShowCelebration(false), 5000);
+    logGroupActivity({ type: "completion", studyNumber: study.number, studyTitle: study.title });
   };
 
   // Cleanup celebration timer
@@ -289,14 +296,33 @@ export function StudyPage() {
 
       {/* ── CELEBRATION OVERLAY ──────────────────────── */}
       {showCelebration && (
-        <div className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center animate-fade-in">
-          <div className="animate-scale-in flex flex-col items-center gap-3 rounded-3xl bg-navy-800/95 px-10 py-8 shadow-gold-glow-lg backdrop-blur-xl">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center animate-fade-in">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCelebration(false)} />
+          <div className="relative z-10 animate-scale-in flex flex-col items-center gap-4 rounded-3xl bg-navy-800/98 px-8 py-8 shadow-gold-glow-lg backdrop-blur-xl mx-6 max-w-[320px] w-full">
+            <button onClick={() => setShowCelebration(false)} className="absolute top-4 right-4 rounded-full p-1 text-muted active:opacity-70"><X size={16} /></button>
             <PartyPopper size={40} className="text-gold-400" />
-            <p className="font-display text-xl font-bold text-gold-400">Study Complete!</p>
-            <p className="text-sm text-white/60">{study.title}</p>
+            <div className="text-center">
+              <p className="font-display text-xl font-bold text-gold-400">Study Complete!</p>
+              <p className="mt-1 text-sm text-white/70">{study.title}</p>
+              <p className="mt-0.5 text-[11px] text-white/40">{new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</p>
+            </div>
+            <button onClick={() => setShowShareModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold-500/15 py-3 text-[14px] font-semibold text-gold-400 active:bg-gold-500/25">
+              <Share2 size={15} /> Share Achievement
+            </button>
+            {studies && studies.find && studies.find((s: {id: number}) => s.id === studyId + 1) && (
+              <button onClick={() => { setShowCelebration(false); navigate(`/study/${studyId + 1}`); }} className="btn-primary w-full">Next Study →</button>
+            )}
           </div>
         </div>
       )}
+
+      {showShareModal && (() => {
+        const firstAnswer = Object.values(progress.answeredQuestions)[0] ?? "";
+        const shareText = formatStudyCompletionMessage({ studyNumber: study.number, studyTitle: study.title, keyAnswer: firstAnswer || undefined, streakDays: 1 });
+        return (
+          <ShareModal open={showShareModal} onClose={() => setShowShareModal(false)} title="Share Study Completion" previewText={shareText} onShare={() => shareOrCopy(shareText, (msg) => showToast(msg))} />
+        );
+      })()}
     </>
   );
 }

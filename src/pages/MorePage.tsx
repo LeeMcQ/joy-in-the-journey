@@ -24,10 +24,10 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  Loader2,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { fetchFullBible, saveFullBibleToDB, isFullBibleDownloaded } from "@/lib/bibleApi";
+import { BibleLanguageManager } from "@/components/ui/BibleLanguageManager";
+import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useReadingStyle, FONT_LABELS } from "@/hooks/useReadingStyle";
@@ -94,41 +94,13 @@ export function MorePage() {
   const [isOnline] = useState(() => navigator.onLine);
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
 
-  // Offline Bible download state
-  const [downloading, setDownloading] = useState(false);
-  const [downloaded, setDownloaded] = useState(() =>
-    isFullBibleDownloaded(bibleVersion.toLowerCase())
-  );
-
   const totalAnswered = useAppStore((s) => s.totalAnswered());
   const totalHL = useAppStore((s) => s.totalHighlights());
   const completedCount = studies.filter((s) => progress[s.id]?.completed).length;
   const startedCount = Object.values(progress).filter((p) => p.started).length;
   const bookmarked = Object.values(progress).filter((p) => p.bookmarked).length;
 
-  // Which versions can be downloaded locally (public/bibles/ files)
-  const downloadableVersions = ["AFR", "KJV", "WEB"];
-  const isDownloadable = downloadableVersions.includes(bibleVersion.toUpperCase());
 
-  const handleDownloadBible = async () => {
-    setDownloading(true);
-    try {
-      const version = bibleVersion.toLowerCase();
-      showToast(`Downloading ${bibleVersion} Bible…`, { type: "info" });
-      const fullBible = await fetchFullBible(version);
-      await saveFullBibleToDB(version, fullBible);
-      setDownloaded(true);
-      showToast(`✅ ${bibleVersion} Bible saved for offline use!`, { type: "success" });
-    } catch (err) {
-      console.error("Bible download failed:", err);
-      showToast(
-        `Download failed — ${isOnline ? "Bible file may not exist on server." : "Check your internet connection."}`,
-        { type: "error" }
-      );
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-5 px-5 pb-8 pt-10">
@@ -173,19 +145,13 @@ export function MorePage() {
       {/* ── Theme ────────────────────────────────────────── */}
       <Section icon={Palette} title="Appearance">
         <div className="flex gap-2">
-          {themes.map(({ value, label, icon: Icon }) => (
-            <button
-              key={value}
-              onClick={() => setTheme(value)}
-              className={cn(
-                "flex flex-1 flex-col items-center gap-2 rounded-xl py-3.5 transition-all",
-                theme === value ? "bg-gold-500/15 ring-1 ring-gold-500/30" : "bg-surface",
-              )}
-            >
-              <Icon size={20} className={theme === value ? "text-gold-500" : "text-muted"} />
-              <span className={cn("text-xs font-semibold", theme === value ? "text-gold-500" : "text-muted")}>
-                {label}
-              </span>
+          {themes.map(({ value, label }) => (
+            <button key={value} onClick={() => setTheme(value)} className={cn("flex flex-1 flex-col items-center gap-1.5 rounded-xl p-2 transition-all border-2", theme === value ? "border-gold-500" : "border-transparent bg-surface")}>
+              <div className={cn("w-full rounded-lg p-2 text-left", value === "dark" && "bg-[#0f1729]", value === "light" && "bg-white", value === "sepia" && "bg-[#f5f0e6]")}>
+                <div className={cn("text-[9px] font-bold mb-0.5", value === "dark" && "text-[#d4a017]", value === "light" && "text-[#8c6a0f]", value === "sepia" && "text-[#8c6a0f]")}>Study 1</div>
+                <div className={cn("text-[8px] leading-tight", value === "dark" && "text-[#a8b2cc]", value === "light" && "text-[#4e6396]", value === "sepia" && "text-[#5c4b37]")}>In the beginning...</div>
+              </div>
+              <span className={cn("text-[11px] font-bold capitalize", theme === value ? "text-gold-500" : "text-muted")}>{label}</span>
             </button>
           ))}
         </div>
@@ -217,40 +183,10 @@ export function MorePage() {
         </button>
       </Section>
 
-      {/* ── Offline Bible ────────────────────────────────── */}
-      <Section icon={BookOpen} title="Offline Bible">
-        <div className="flex flex-col gap-3">
-          <p className="text-[12px] leading-relaxed text-muted">
-            Download the selected Bible version to use completely offline.
-            {!isDownloadable && (
-              <span className="mt-1 block text-amber-400">
-                {bibleVersion} is not available for download (online only). Switch to AFR, KJV, or WEB.
-              </span>
-            )}
-          </p>
-
-          <button
-            onClick={handleDownloadBible}
-            disabled={downloading || !isOnline || !isDownloadable}
-            className="btn-primary flex items-center justify-center gap-2 py-4 disabled:opacity-40"
-          >
-            {downloading
-              ? <><Loader2 size={18} className="animate-spin" /> Downloading…</>
-              : <><Download size={18} /> Download {bibleVersion} for Offline</>}
-          </button>
-
-          {downloaded && !downloading && (
-            <p className="flex items-center gap-1 text-xs text-emerald-500">
-              <CheckCircle2 size={14} /> {bibleVersion} already downloaded
-            </p>
-          )}
-
-          {!isOnline && (
-            <p className="text-[11px] text-amber-500">
-              Connect to the internet to download a Bible.
-            </p>
-          )}
-        </div>
+      {/* ── Bible Languages ───────────────────────────────── */}
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60 px-1 mt-2">Bible &amp; AI</p>
+      <Section icon={BookOpen} title="Bible Languages">
+        <BibleLanguageManager />
       </Section>
 
       {/* ── Font Size ────────────────────────────────────── */}
@@ -333,11 +269,7 @@ export function MorePage() {
           {bibleVersions.map((v) => (
             <button
               key={v}
-              onClick={() => {
-                setBibleVersion(v);
-                // Re-check downloaded status for the newly selected version
-                setDownloaded(isFullBibleDownloaded(v.toLowerCase()));
-              }}
+              onClick={() => setBibleVersion(v)}
               className={cn(
                 "rounded-lg px-4 py-2 text-sm font-semibold transition-all",
                 bibleVersion === v
@@ -351,7 +283,14 @@ export function MorePage() {
         </div>
       </Section>
 
+      {/* ── Study Group ──────────────────────────────────── */}
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60 px-1 mt-2">Daily Rhythm</p>
+      <Section icon={Sparkles} title="Study Group">
+        <StudyGroupPanel variant="full" />
+      </Section>
+
       {/* ── AI Settings ─────────────────────────────────── */}
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60 px-1 mt-2">Reading Experience</p>
       <AISettingsSection />
 
       {/* ── Study Plan ───────────────────────────────────── */}
@@ -440,6 +379,15 @@ export function MorePage() {
           <p className="text-[11px] text-muted">PWA · React · TypeScript</p>
         </div>
       </div>
+
+      {/* ── About ────────────────────────────────────────── */}
+      <Section icon={BookOpen} title="About This App">
+        <div className="flex flex-col gap-2">
+          <p className="text-[13px] leading-relaxed text-muted">This app is an independent ministry tool built to support SDA Bible study. Content is based on the 28 Fundamental Beliefs of the Seventh-day Adventist Church.</p>
+          <a href="https://www.adventist.org" target="_blank" rel="noopener noreferrer" className="text-[13px] font-semibold text-gold-500">adventist.org ↗</a>
+          <p className="text-[11px] text-muted italic">Built with ♥ for the Southern African SDA community</p>
+        </div>
+      </Section>
 
       {/* ── Reset ────────────────────────────────────────── */}
       <button

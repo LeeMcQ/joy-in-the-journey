@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Search, X, BookMarked, ChevronLeft, ChevronRight, ChevronDown,
   Loader2, WifiOff, Download, CheckCircle2,
@@ -7,7 +7,8 @@ import {
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { cn } from "@/lib/utils";
-import { BIBLE_BOOKS, OT_BOOKS, NT_BOOKS, parseReference, getBookDisplayName, getTestamentLabel, type BibleBook } from "@/lib/bibleData";
+import { useAppStore } from "@/store/useAppStore";
+import { BIBLE_BOOKS, OT_BOOKS, NT_BOOKS, parseReference, getBookDisplayName, getTestamentLabel, getChaptersLabel, LOCALISED_TO_ENG, type BibleBook } from "@/lib/bibleData";
 import { normaliseReference } from "@/lib/scriptureUtils";
 import {
   getChapter, lookupReference,
@@ -22,7 +23,11 @@ type ViewMode = "bookSelect" | "chapterSelect" | "reading" | "search" | "downloa
 export function BiblePage() {
   const { isDark } = useTheme();
   const isOnline = useOnlineStatus();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const bibleBookmark = useAppStore((s) => s.bibleBookmark);
+  const setBibleBookmark = useAppStore((s) => s.setBibleBookmark);
+  const bookmarkRestoredRef = useRef(false);
 
   const [view, setView] = useState<ViewMode>("bookSelect");
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
@@ -68,6 +73,30 @@ export function BiblePage() {
     }
   }, [dlProgress?.status, refreshCounts]);
 
+  // Restore last position on first mount
+  useEffect(() => {
+    if (bookmarkRestoredRef.current) return;
+    if (searchParams.get("ref")) return;
+    bookmarkRestoredRef.current = true;
+    if (bibleBookmark) {
+      const book = BIBLE_BOOKS.find((b) => b.name === bibleBookmark.book);
+      if (book) {
+        setSelectedBook(book);
+        setSelectedChapter(bibleBookmark.chapter);
+        const t = bibleBookmark.translation as import("@/lib/localBible").TranslationId;
+        if (LOCAL_TRANSLATIONS.some((l) => l.id === t)) setTranslation(t);
+        setView("reading");
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save position on change
+  useEffect(() => {
+    if (view === "reading" && selectedBook) {
+      setBibleBookmark(selectedBook.name, selectedChapter, translation);
+    }
+  }, [selectedBook, selectedChapter, translation, view, setBibleBookmark]);
+
   // Deep-link: ?ref=John+3:16
   useEffect(() => {
     const ref = searchParams.get("ref");
@@ -105,7 +134,8 @@ export function BiblePage() {
     if (!q) return;
     const parsed = parseReference(normaliseReference(q));
     if (parsed) {
-      const book = BIBLE_BOOKS.find((b) => b.name.toLowerCase() === parsed.book.toLowerCase());
+      const englishBook = LOCALISED_TO_ENG[parsed.book.toLowerCase()] ?? parsed.book;
+      const book = BIBLE_BOOKS.find((b) => b.name.toLowerCase() === englishBook.toLowerCase());
       if (book) {
         setSelectedBook(book);
         setSelectedChapter(parsed.chapter);
@@ -165,7 +195,7 @@ export function BiblePage() {
     setPopupRef(`${selectedBook.name} ${v.chapter}:${v.verse}`);
   };
 
-  // Cycle only through LOCAL translations in the reader
+  // Cycle through all local translations including XHO
   const cycleTranslation = () => {
     const ids = LOCAL_TRANSLATIONS.map((x) => x.id);
     setTranslation((t) => ids[(ids.indexOf(t) + 1) % ids.length]);
@@ -450,7 +480,7 @@ export function BiblePage() {
                   {getBookDisplayName(selectedBook.name, translation)}
                 </h2>
                 <p className="text-[12px] text-muted">
-                  {selectedBook.chapters} {translation === "afr" ? "hoofstukke" : "chapters"} · {getTestamentLabel(selectedBook.testament, translation)}
+                  {selectedBook.chapters} {getChaptersLabel(translation)} · {getTestamentLabel(selectedBook.testament, translation)}
                 </p>
               </div>
             </div>
@@ -510,19 +540,17 @@ export function BiblePage() {
                 <WifiOff size={28} className="opacity-30 text-muted" />
                 <p className="text-sm text-secondary">Could not load chapter</p>
                 <p className="max-w-[280px] whitespace-pre-line text-xs text-muted">{error}</p>
-                {!isOnline && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs text-amber-500">
-                      You're offline. Download this translation first.
-                    </p>
-                    <button
-                      onClick={() => setView("download")}
-                      className="btn-secondary text-xs"
-                    >
-                      <Download size={13} /> Go to Download
-                    </button>
+                {translation === "xho" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-xs text-amber-500">The Xhosa Bible needs to be downloaded first.</p>
+                    <button onClick={() => navigate("/more")} className="btn-secondary text-xs"><Download size={13} /> Download in Settings</button>
                   </div>
-                )}
+                ) : !isOnline ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-amber-500">You're offline. Download this translation first.</p>
+                    <button onClick={() => setView("download")} className="btn-secondary text-xs"><Download size={13} /> Go to Download</button>
+                  </div>
+                ) : null}
               </div>
             )}
 
