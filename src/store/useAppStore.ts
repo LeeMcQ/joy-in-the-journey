@@ -22,6 +22,7 @@ interface AppStore {
   progress: Record<number, StudyProgress>;
   settings: AppSettings;
   studyPlan: StudyPlan;
+  bibleBookmark: { book: string; chapter: number; translation: string } | null;
 
   // Study progress
   startStudy: (studyId: number) => void;
@@ -44,6 +45,7 @@ interface AppStore {
   setTheme: (theme: AppSettings["theme"]) => void;
   setBibleVersion: (version: string) => void;
   setCurrentStudy: (id: number | null) => void;
+  setBibleBookmark: (book: string, chapter: number, translation: string) => void;
 
   // Study plan
   setupPlan: (pace: StudyPace, customDays?: number) => void;
@@ -178,6 +180,7 @@ export const useAppStore = create<AppStore>()(
         currentStudyId: null,
       },
       studyPlan: { ...defaultPlan },
+      bibleBookmark: null,
 
       /* ── Progress ──────────────────────────────────── */
 
@@ -265,6 +268,7 @@ export const useAppStore = create<AppStore>()(
       setTheme: (theme) => set((s) => ({ settings: { ...s.settings, theme } })),
       setBibleVersion: (bibleVersion) => set((s) => ({ settings: { ...s.settings, bibleVersion } })),
       setCurrentStudy: (id) => set((s) => ({ settings: { ...s.settings, currentStudyId: id } })),
+      setBibleBookmark: (book, chapter, translation) => set(() => ({ bibleBookmark: { book, chapter, translation } })),
 
       /* ── Study plan ────────────────────────────────── */
 
@@ -336,6 +340,7 @@ export const useAppStore = create<AppStore>()(
         progress: state.progress,
         settings: state.settings,
         studyPlan: state.studyPlan,
+        bibleBookmark: state.bibleBookmark,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -360,7 +365,7 @@ export const useAppStore = create<AppStore>()(
             state.studyPlan = { ...defaultPlan };
           }
         }
-        return state as { progress: Record<number, StudyProgress>; settings: AppSettings; studyPlan: StudyPlan };
+        return state as { progress: Record<number, StudyProgress>; settings: AppSettings; studyPlan: StudyPlan; bibleBookmark: null };
       },
     },
   ),
