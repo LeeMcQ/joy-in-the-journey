@@ -217,13 +217,57 @@ export const AFR_BOOK_NAMES: Record<string, string> = {
 };
 
 /** Return the display name for a book in the given translation language */
+/* helpers updated below with XHO support */
+
+
+/* ================================================================== */
+/*  Xhosa (XHO75) book name translations                             */
+/* ================================================================== */
+
+export const XHO_BOOK_NAMES: Record<string, string> = {
+  "Genesis": "Genesisi","Exodus": "Eksodus","Leviticus": "Levitikus",
+  "Numbers": "Izibalelo","Deuteronomy": "Duteronomi","Joshua": "Yoshuwa",
+  "Judges": "Abahluleli","Ruth": "Rute","1 Samuel": "1 Samuweli",
+  "2 Samuel": "2 Samuweli","1 Kings": "1 Kumkani","2 Kings": "2 Kumkani",
+  "1 Chronicles": "1 Izilandelo","2 Chronicles": "2 Izilandelo",
+  "Ezra": "Ezra","Nehemiah": "Nehemiya","Esther": "Esti","Job": "Yobhi",
+  "Psalms": "IiNdumiso","Proverbs": "IMizekeliso","Ecclesiastes": "UMthunyeli",
+  "Song of Solomon": "Ingoma yezingoma","Isaiah": "Isaya","Jeremiah": "Yeremiya",
+  "Lamentations": "IziLilo","Ezekiel": "Hezekile","Daniel": "Daniyeli",
+  "Hosea": "Hoseya","Joel": "Yoweli","Amos": "Amosi","Obadiah": "Obadiya",
+  "Jonah": "Yona","Micah": "Mika","Nahum": "Nahum","Habakkuk": "Habakuki",
+  "Zephaniah": "Zefaniya","Haggai": "Hagayi","Zechariah": "Zakariya",
+  "Malachi": "Malaki","Matthew": "Mateyu","Mark": "Marko","Luke": "Luka",
+  "John": "Yohane","Acts": "IZenzo","Romans": "AmaRoma",
+  "1 Corinthians": "1 AmaKorinte","2 Corinthians": "2 AmaKorinte",
+  "Galatians": "AmaGalati","Ephesians": "AmaEfese","Philippians": "AmaFiliphi",
+  "Colossians": "AmaKolose","1 Thessalonians": "1 AmaThesalonika",
+  "2 Thessalonians": "2 AmaThesalonika","1 Timothy": "1 Timoti",
+  "2 Timothy": "2 Timoti","Titus": "Tito","Philemon": "Filemon",
+  "Hebrews": "AmaHebhere","James": "Yakobi","1 Peter": "1 Petros",
+  "2 Peter": "2 Petros","1 John": "1 Yohane","2 John": "2 Yohane",
+  "3 John": "3 Yohane","Jude": "Yuda","Revelation": "ISityhilelo",
+};
+
 export function getBookDisplayName(englishName: string, translation: string): string {
   if (translation === "afr") return AFR_BOOK_NAMES[englishName] ?? englishName;
+  if (translation === "xho") return XHO_BOOK_NAMES[englishName] ?? englishName;
   return englishName;
 }
 
-/** Return "Ou Testament" / "Nuwe Testament" for AFR, else English */
 export function getTestamentLabel(testament: "OT" | "NT", translation: string): string {
   if (translation === "afr") return testament === "OT" ? "Ou Testament" : "Nuwe Testament";
+  if (translation === "xho") return testament === "OT" ? "Ufanelo Lwakudala" : "Ufanelo Olutsha";
   return testament === "OT" ? "Old Testament" : "New Testament";
 }
+
+export function getChaptersLabel(translation: string): string {
+  if (translation === "afr") return "hoofstukke";
+  if (translation === "xho") return "izahluko";
+  return "chapters";
+}
+
+export const LOCALISED_TO_ENG: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(AFR_BOOK_NAMES).map(([en, af]) => [af.toLowerCase(), en])),
+  ...Object.fromEntries(Object.entries(XHO_BOOK_NAMES).map(([en, xh]) => [xh.toLowerCase(), en])),
+};

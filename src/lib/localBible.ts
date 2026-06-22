@@ -17,7 +17,7 @@ export interface VerseResult {
   text: string;
 }
 
-export type TranslationId = "afr" | "kjv" | "web";
+export type TranslationId = "afr" | "kjv" | "web" | "xho";
 
 export interface TranslationInfo {
   id: TranslationId;
@@ -50,6 +50,13 @@ export const LOCAL_TRANSLATIONS: TranslationInfo[] = [
     fullName: "World English Bible",
     downloadable: true,
     language: "en",
+  },
+  {
+    id: "xho",
+    name: "XHO",
+    fullName: "IBhayibhile 1975 (Xhosa)",
+    downloadable: true,
+    language: "xh",
   },
 ];
 
@@ -276,6 +283,16 @@ export async function getChapter(
   chapter: number,
   translation: TranslationId = "afr",
 ): Promise<VerseResult> {
+  if (translation === "xho") {
+    const { getChapterFromDB, isTranslationInstalled } = await import("@/lib/bibleDB");
+    const installed = await isTranslationInstalled("XHO75");
+    if (!installed) throw new Error("Xhosa Bible not installed. Download it in Settings → Bible Languages.");
+    const rows = await getChapterFromDB("XHO75", bookName, chapter);
+    if (!rows.length) throw new Error(`${bookName} ${chapter} not found in XHO75.`);
+    const verses: LocalVerse[] = rows.map((v) => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }));
+    return { reference: `${bookName} ${chapter}`, translation, verses, text: verses.map((v) => v.text).join(" ") };
+  }
+
   const key = cacheKey(translation, bookName, chapter);
 
   // 1. IDB
