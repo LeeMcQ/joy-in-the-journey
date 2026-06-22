@@ -90,7 +90,7 @@ export function QuestionBlock({
       className="animate-slide-up"
       style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}
     >
-      <div className={cn("card card-surface", hasAnswer && "ring-1 ring-gold-500/10")}>
+      <div className={cn("rounded-2xl border-l-[3px] border-gold-500 bg-navy-700/60 px-4 py-4", hasAnswer && "ring-1 ring-gold-500/15")}>
         <div className="flex gap-3">
           {/* Badge */}
           <div className="flex flex-col items-center gap-1.5 pt-0.5">
@@ -173,7 +173,14 @@ export function QuestionBlock({
                 onBlur={handleBlur}
                 placeholder="Write down your thoughts…"
                 rows={2}
-                className={cn("textarea !pr-10", answer && "border-gold-500/15")}
+                className={cn(
+                  "w-full resize-none bg-transparent",
+                  "border-b border-white/10 focus:border-gold-500/40",
+                  "text-secondary placeholder:text-white/20",
+                  "py-2 outline-none transition-colors",
+                  "font-[inherit] text-[15px] leading-relaxed min-h-[80px]",
+                  answer && "border-gold-500/15",
+                )}
               />
               <div className="absolute right-3 top-3">
                 {saveState === "saving" && (

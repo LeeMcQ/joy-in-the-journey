@@ -21,7 +21,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-type InlineTab = "afr" | "kjv" | "web";
+type InlineTab = "afr" | "kjv" | "web" | "xho";
 
 interface BibleVerse {
   verse: number;
@@ -44,7 +44,7 @@ export interface BiblePopupProps {
 
 async function fetchFromBibleApi(
   reference: string,
-  translation: "afr" | "kjv" | "web"
+  translation: "afr" | "kjv" | "web" | "xho"
 ): Promise<VerseData | null> {
   try {
     const { lookupReference } = await import("@/lib/localBible");
@@ -482,6 +482,7 @@ function BiblePopupInner({
           <TabBtn label="AFR" active={activeTab === "afr"} onClick={() => handleTab("afr")} />
           <TabBtn label="KJV" active={activeTab === "kjv"} onClick={() => handleTab("kjv")} />
           <TabBtn label="WEB" active={activeTab === "web"} onClick={() => handleTab("web")} />
+          <TabBtn label="XHO" active={activeTab === "xho"} onClick={() => handleTab("xho")} />
 
           <div className="w-px h-6 bg-white/15 mx-1 flex-shrink-0" />
 
