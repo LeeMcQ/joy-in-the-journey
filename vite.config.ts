@@ -21,9 +21,9 @@ export default defineConfig({
         "bibles/*.json",
       ],
       manifest: {
-        name: "Joy in the Journey — Bible Study Series",
-        short_name: "Joy Journey",
-        description: "28 interactive Bible studies to deepen your walk with God",
+        name: "SDA Bible Study Companion",
+        short_name: "SDA Bible",
+        description: "28 interactive Adventist Bible studies grounded in SDA theology",
         theme_color: "#0F172A",
         background_color: "#0F172A",
         display: "standalone",
