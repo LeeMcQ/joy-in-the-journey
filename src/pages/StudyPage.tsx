@@ -153,7 +153,7 @@ export function StudyPage() {
               <button
                 onClick={() => {
                   navigator.share?.({
-                    title: `${study.title} — Joy in the Journey`,
+                    title: `${study.title} — SDA Bible Study Companion`,
                     text: `Study ${study.number}: ${study.title}`,
                   });
                 }}

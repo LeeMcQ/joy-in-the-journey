@@ -114,7 +114,7 @@ export function MorePage() {
               <Download size={20} className="text-gold-500" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold">Install Joy in the Journey</p>
+              <p className="text-base font-semibold">Install SDA Bible Study Companion</p>
               <p className="text-sm text-muted">
                 {isIOS ? 'Tap Share → "Add to Home Screen"' : "Add to your home screen for offline access"}
               </p>
@@ -371,7 +371,7 @@ export function MorePage() {
           <p className="text-xs font-bold uppercase tracking-caps text-gold-500">About</p>
         </div>
         <p className="text-[13px] leading-relaxed text-secondary">
-          <strong className="font-display text-sm">Joy in the Journey</strong> — 28 interactive Bible studies from the SDA Bible Study Series.
+          <strong className="font-display text-sm">SDA Bible Study Companion</strong> — 28 interactive Bible studies grounded in Adventist theology.
         </p>
         <div className="divider my-3" />
         <div className="flex items-center justify-between">
