@@ -1,8 +1,0 @@
-import{c as s}from"./index-DXEmd7KI.js";/**
- * @license lucide-react v0.454.0 - ISC
- *
- * This source code is licensed under the ISC license.
- * See the LICENSE file in the root directory of this source tree.
- */const o=s("Share2",[["circle",{cx:"18",cy:"5",r:"3",key:"gq8acd"}],["circle",{cx:"6",cy:"12",r:"3",key:"w7nqdw"}],["circle",{cx:"18",cy:"19",r:"3",key:"1xt0gg"}],["line",{x1:"8.59",x2:"15.42",y1:"13.51",y2:"17.49",key:"47mynk"}],["line",{x1:"15.41",x2:"8.59",y1:"6.51",y2:"10.49",key:"1n3mei"}]]),n="leemcq.github.io/joy-in-the-journey";function r(e){const t=["✝️ *SDA Bible Study Companion*","📖 Ek het voltooi / I just completed:",`*Study ${e.studyNumber}: ${e.studyTitle}*`,""];return e.keyAnswer&&(t.push("My reflection:"),t.push(`_"${e.keyAnswer.slice(0,150)}${e.keyAnswer.length>150?"…":""}"_`),t.push("")),e.keyVerse&&(t.push(`📖 Key verse: ${e.keyVerse}`),t.push("")),e.streakDays>1&&(t.push(`🔥 ${e.streakDays} day study streak`),t.push("")),t.push("Join the 28-study journey:",n),t.join(`
-`)}function y(e){return["✝️ *SDA Bible Study Companion*",`📖 Studying: _${e.studyTitle}_`,"",`*Question:* ${e.question.slice(0,100)}`,"","*My reflection:*",`_"${e.answer.slice(0,200)}${e.answer.length>200?"…":""}"_`,"",n].join(`
-`)}async function a(e){if(navigator.share){await navigator.share({text:e});return}window.open(`https://wa.me/?text=${encodeURIComponent(e)}`,"_blank")}async function c(e,t){try{await a(e)}catch{try{await navigator.clipboard.writeText(e),t("Copied to clipboard — paste into WhatsApp")}catch{t("Could not share — please copy manually")}}}export{o as S,y as a,r as f,c as s};
