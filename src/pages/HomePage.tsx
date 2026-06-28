@@ -141,7 +141,7 @@ function StatCard({ icon: Icon, value, label, isDark }: { icon: typeof BookOpen;
   return (
     <div className="card card-surface flex flex-col items-center gap-1.5 py-4">
       <Icon size={18} className={cn(isDark ? "text-gold-500/50" : "text-gold-600/60")} />
-      <p className="text-lg font-bold">{value}</p>
+      <p className="text-lg font-bold text-primary">{value}</p>
       <p className="text-muted text-2xs font-medium uppercase tracking-caps">{label}</p>
     </div>
   );
@@ -151,7 +151,7 @@ function QuickLink({ label, sub, icon: Icon, onClick, isDark }: { label: string;
   return (
     <button onClick={onClick} className="card card-surface card-interactive flex items-center gap-3 text-left">
       <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", isDark ? "bg-gold-500/10" : "bg-gold-100/60")}><Icon size={18} className="text-gold-500" /></div>
-      <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{label}</p><p className="text-muted text-[12px]">{sub}</p></div>
+      <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-primary">{label}</p><p className="text-muted text-[12px]">{sub}</p></div>
       <ArrowRight size={16} className="shrink-0 text-muted" />
     </button>
   );

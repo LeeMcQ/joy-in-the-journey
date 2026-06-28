@@ -18,7 +18,7 @@ export function StudyGroupPanel({ variant = "widget" }: { variant?: "widget" | "
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-500/10"><Users size={18} className="text-gold-500" /></div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{group.name}</p>
+                <p className="text-sm font-semibold text-primary">{group.name}</p>
                 <p className="text-muted text-[11px] font-mono">Code: {group.code}</p>
               </div>
               <button onClick={() => shareOrCopy(getGroupShareMessage(group), (msg) => showToast(msg))} className="rounded-xl p-2 text-gold-500 active:opacity-70"><Share2 size={16} /></button>
@@ -27,7 +27,7 @@ export function StudyGroupPanel({ variant = "widget" }: { variant?: "widget" | "
             <button onClick={() => setShowFull(true)} className="flex w-full items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-500/10"><Users size={18} className="text-gold-500" /></div>
               <div className="min-w-0 flex-1 text-left">
-                <p className="text-sm font-semibold">👥 Study with others</p>
+                <p className="text-sm font-semibold text-primary">👥 Study with others</p>
                 <p className="text-muted text-[12px]">Create or join a group to study together</p>
               </div>
               <span className="text-[12px] font-semibold text-gold-500">Set up →</span>
@@ -89,7 +89,7 @@ function StudyGroupFull({ group, setGroup, onClose: _onClose }: { group: StudyGr
       {group && (
         <div className="flex flex-col gap-3">
           <div className="text-center">
-            <p className="text-lg font-bold">{group.name}</p>
+            <p className="text-lg font-bold text-primary">{group.name}</p>
             <div className="mt-2 flex items-center justify-center gap-2">
               <span className="font-mono text-2xl font-bold text-gold-500 tracking-widest">{group.code}</span>
               <button onClick={() => { navigator.clipboard.writeText(group.code); showToast("Code copied!"); }} className="rounded-lg p-1.5 text-muted active:opacity-70"><Copy size={14} /></button>

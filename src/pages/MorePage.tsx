@@ -114,7 +114,7 @@ export function MorePage() {
               <Download size={20} className="text-gold-500" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold">Install SDA Bible Study Companion</p>
+              <p className="text-base font-semibold text-primary">Install SDA Bible Study Companion</p>
               <p className="text-sm text-muted">
                 {isIOS ? 'Tap Share → "Add to Home Screen"' : "Add to your home screen for offline access"}
               </p>
@@ -174,7 +174,7 @@ export function MorePage() {
             ? <Volume2 size={18} className="text-gold-500" />
             : <VolumeX size={18} className="text-muted" />}
           <div className="flex-1 text-left">
-            <p className="text-sm font-semibold">{soundOn ? "Sounds On" : "Sounds Off"}</p>
+            <p className="text-sm font-semibold text-primary">{soundOn ? "Sounds On" : "Sounds Off"}</p>
             <p className="text-[12px] text-muted">Tap feedback, chimes &amp; haptics</p>
           </div>
           <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", soundOn ? "bg-gold-500" : "bg-surface")}>

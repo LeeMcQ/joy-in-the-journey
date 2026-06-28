@@ -48,8 +48,8 @@
   --color-surface: 245 246 250;
   --color-surface-elevated: 255 255 255;
   --color-text-primary: 15 23 42;
-  --color-text-secondary: 78 99 150;
-  --color-text-muted: 110 125 158;
+  --color-text-secondary: 51 65 94;
+  --color-text-muted: 82 95 125;
   --color-border: 15 23 42 / 0.08;
   --color-border-strong: 15 23 42 / 0.15;
   --color-gold-text: 140 106 15;
@@ -61,8 +61,8 @@
   --color-surface: 237 230 214;
   --color-surface-elevated: 245 240 230;
   --color-text-primary: 61 50 36;
-  --color-text-secondary: 92 75 55;
-  --color-text-muted: 140 120 90;
+  --color-text-secondary: 74 60 42;
+  --color-text-muted: 110 92 64;
   --color-border: 61 50 36 / 0.1;
   --color-border-strong: 61 50 36 / 0.18;
   --color-gold-text: 140 106 15;
@@ -115,6 +115,7 @@
   h1, h2, h3 {
     @apply font-display tracking-tight;
     text-wrap: balance;
+    color: rgb(var(--color-text-primary));
   }
 
   /* Scripture text */

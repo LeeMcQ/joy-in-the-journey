@@ -515,7 +515,7 @@ export function BiblePage() {
                 onClick={() => setView("chapterSelect")}
                 className="flex items-center gap-1.5 rounded-xl bg-surface px-4 py-2.5 active:opacity-70"
               >
-                <span className="font-display text-sm font-bold">{getBookDisplayName(selectedBook.name, translation)} {selectedChapter}</span>
+                <span className="font-display text-sm font-bold text-primary">{getBookDisplayName(selectedBook.name, translation)} {selectedChapter}</span>
                 <ChevronDown size={14} className="text-muted" />
               </button>
               <button
