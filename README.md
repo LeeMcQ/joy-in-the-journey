@@ -120,7 +120,7 @@ The app shows an install banner on the **More → Settings** page:
 | Bible verses (new) | ❌ Needs network | bible-api.com |
 | Google Fonts | ✅ Cached | CacheFirst |
 
-## Project Structure
+## Project Structure  
 
 ```
 src/
