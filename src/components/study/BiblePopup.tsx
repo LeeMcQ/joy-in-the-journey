@@ -5,11 +5,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  getStoredMode, storeMode, streamWithAI,
-  type AIMode, type ChatMessage,
+  getStoredMode, storeMode, streamWithAI, buildMessages,
+  type AIMode,
 } from "@/lib/aiProvider";
 import { showToast } from "@/components/ui/Toast";
 import { formatVerseMessage, shareOrCopy } from "@/lib/sharing";
+import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -62,115 +63,18 @@ async function fetchFromBibleApi(
   }
 }
 
-// ─── Theology Prompt ────────────────────────────────────────────────────────
-
-function buildTheologyPrompt(reference: string, verseText: string): string {
-  return `You are a Christian theologian with strong expertise in Seventh-day Adventist Church doctrine, biblical exegesis, and systematic theology. Your goal is not only accuracy, but to help the reader grow in clear understanding step-by-step.
-
-The verse being studied is: **${reference}**
-"${verseText}"
-
-Guide me through this passage using the following progressive structure. Build each section upon the previous one, moving from simple understanding to deeper biblical insight. Keep Christ at the center and ensure every conclusion is supported by Scripture. Distinguish clearly between what the text explicitly states and reasonable theological implications. Skip any section that is not genuinely applicable rather than forcing an answer.
-
-1. Simple Meaning (Clarity First)
-Explain the passage in plain, modern language. What is the author directly saying? Avoid theological jargon.
-
----
-
-2. Deeper Meaning (Understanding the Message)
-Identify the central themes, spiritual principles, and doctrinal significance. Clearly distinguish:
-- What the text says
-- What the text teaches
-- What should not be inferred beyond the text
-
----
-
-3. Original Language Insight (Precision Layer)
-Highlight key Hebrew or Greek words by providing:
-- Original word / Transliteration / Literal meaning / Meaning within this context / Why the word choice matters
-
----
-
-4. Biblical Context (Big Picture)
-Explain how this passage fits within the surrounding chapter, the overall purpose of the book, and the unfolding biblical story.
-
----
-
-5. Spirit of Prophecy Insight
-Provide relevant insights from Ellen G. White that directly illuminate the passage, including the source reference. Use only where genuinely applicable.
-
----
-
-6. Supporting Biblical Connections
-List key cross-references and briefly explain how each reinforces the teaching.
-
----
-
-7. Adventist Understanding
-Explain how Seventh-day Adventist theology understands this passage, especially regarding themes relevant to the passage (Great Controversy, Law and Grace, Sanctuary, Sabbath, State of the Dead, Second Coming, Character of God).
-
----
-
-8. Practical Application (Transformation)
-Explain how this passage should shape my understanding of God, relationship with Christ, character, daily decisions, and spiritual walk.
-
----
-
-9. Key Takeaway
-State the single most important truth in one concise sentence.
-
----
-
-10. Further Study
-Provide three progressively deeper research questions:
-1. Understanding the text
-2. Exploring the theology
-3. Applying the truth to Christian living`;
-}
-
 // ─── AI Streaming ───────────────────────────────────────────────────────────
 
 async function streamTheologyAI(
   reference: string, verseText: string, mode: AIMode,
   onChunk: (text: string) => void, signal: AbortSignal
 ): Promise<void> {
-  const prompt = buildTheologyPrompt(reference, verseText);
-  const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-  await streamWithAI(mode, messages, onChunk, signal);
-}
-
-// ─── Markdown renderer ──────────────────────────────────────────────────────
-
-function MarkdownBlock({ text }: { text: string }) {
-  return (
-    <>
-      {text.split("\n").map((line, i) => {
-        if (line.startsWith("**") && line.endsWith("**") && line.length > 4)
-          return <p key={i} className="text-gold-400 font-bold text-sm mt-4 mb-1 leading-snug">{line.slice(2, -2)}</p>;
-        if (line.startsWith("---"))
-          return <hr key={i} className="border-white/10 my-3" />;
-        if (line.startsWith("- ") || line.startsWith("• "))
-          return (
-            <div key={i} className="flex gap-2 text-sm text-white/80 mb-1">
-              <span className="text-gold-400 flex-shrink-0 mt-0.5">•</span>
-              <span>{inlineFmt(line.slice(2))}</span>
-            </div>
-          );
-        if (line.trim() === "") return <div key={i} className="h-1" />;
-        return <p key={i} className="text-sm text-white/85 leading-relaxed mb-0.5">{inlineFmt(line)}</p>;
-      })}
-    </>
-  );
-}
-
-function inlineFmt(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
-    if (part.startsWith("*") && part.endsWith("*"))
-      return <em key={i} className="text-gold-200 italic">{part.slice(1, -1)}</em>;
-    return part;
+  const messages = buildMessages({
+    task: "scripture",
+    mode,
+    vars: { reference, verseText },
   });
+  await streamWithAI(mode, messages, onChunk, signal);
 }
 
 // ─── Tab Button ─────────────────────────────────────────────────────────────
