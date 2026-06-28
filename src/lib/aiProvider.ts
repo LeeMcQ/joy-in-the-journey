@@ -6,7 +6,9 @@
 /*  No API keys are ever stored or sent from the browser.             */
 /* ================================================================== */
 
-const PROXY_URL = (import.meta.env.VITE_AI_PROXY_URL as string | undefined) ?? "";
+const PROXY_URL =
+  (import.meta.env.VITE_AI_PROXY_URL as string | undefined) ||
+  "https://sda-bible-ai.mcquir4l.workers.dev";
 
 export type AIMode = "normal" | "deep";
 
