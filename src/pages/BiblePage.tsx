@@ -217,6 +217,7 @@ export function BiblePage() {
         )}
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 2rem)" }}
         >
+          <div className="mx-auto w-full max-w-4xl md:px-3">
           <div className="flex items-center justify-between gap-3">
             {view === "reading" || view === "chapterSelect" ? (
               <button
@@ -287,11 +288,12 @@ export function BiblePage() {
               <span className="font-semibold text-gold-500">Ch. {selectedChapter}</span>
             </div>
           )}
+          </div>
         </div>
 
         {/* ── DOWNLOAD VIEW ──────────────────────────────── */}
         {view === "download" && (
-          <div className="flex flex-col gap-4 px-5 pt-5">
+          <div className="mx-auto w-full max-w-2xl flex flex-col gap-4 px-5 pt-5 md:px-8 md:pt-8">
             <div>
               <h2 className="font-display text-lg font-bold">Download for Offline</h2>
               <p className="mt-1 text-[13px] leading-relaxed text-muted">
@@ -397,7 +399,7 @@ export function BiblePage() {
 
         {/* ── SEARCH VIEW ────────────────────────────────── */}
         {view === "search" && (
-          <div className="flex flex-col gap-4 px-5 pt-4">
+          <div className="mx-auto w-full max-w-2xl flex flex-col gap-4 px-5 pt-4 md:px-8 md:pt-6">
             <div className="relative">
               <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
               <input
@@ -454,7 +456,7 @@ export function BiblePage() {
 
         {/* ── BOOK SELECT ────────────────────────────────── */}
         {view === "bookSelect" && (
-          <div className="flex flex-col gap-5 px-5 pt-4">
+          <div className="mx-auto w-full max-w-4xl flex flex-col gap-5 px-5 pt-4 md:px-8 md:pt-6">
             <BookGrid
               label={getTestamentLabel("OT", translation)}
               books={OT_BOOKS}
@@ -472,7 +474,7 @@ export function BiblePage() {
 
         {/* ── CHAPTER SELECT ─────────────────────────────── */}
         {view === "chapterSelect" && selectedBook && (
-          <div className="flex flex-col gap-4 px-5 pt-4">
+          <div className="mx-auto w-full max-w-4xl flex flex-col gap-4 px-5 pt-4 md:px-8 md:pt-6">
             <div className="flex items-center gap-3">
               <BookMarked size={18} className="text-gold-500" />
               <div>
@@ -484,7 +486,7 @@ export function BiblePage() {
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12">
               {Array.from({ length: selectedBook.chapters }, (_, i) => i + 1).map((ch) => (
                 <button
                   key={ch}
@@ -500,9 +502,9 @@ export function BiblePage() {
 
         {/* ── READING VIEW ───────────────────────────────── */}
         {view === "reading" && selectedBook && (
-          <div className="flex flex-col gap-4 px-5 pt-4">
+          <div className="mx-auto w-full max-w-4xl flex flex-col gap-4 px-5 pt-4 md:px-8 md:pt-6">
             {/* Chapter navigation header */}
-            <div className="flex items-center justify-between">
+            <div className="mx-auto w-full max-w-2xl flex items-center justify-between">
               <button
                 onClick={() => goChapter(-1)}
                 disabled={!canPrev}
@@ -556,7 +558,7 @@ export function BiblePage() {
 
             {chapterData && !loading && (
               <>
-                <div className="flex flex-col gap-0 pb-4">
+                <div className="mx-auto w-full max-w-2xl flex flex-col gap-0 pb-4">
                   {chapterData.verses.map((v, i) => (
                     <button
                       key={`${v.chapter}-${v.verse}-${i}`}
@@ -567,7 +569,7 @@ export function BiblePage() {
                         highlightVerse === v.verse && "bg-gold-500/10 ring-1 ring-gold-500/20",
                       )}
                     >
-                      <p className="font-scripture text-[15px] leading-[1.95] text-secondary">
+                      <p className="font-scripture text-[15px] leading-[1.95] text-secondary md:text-[16.5px] md:leading-[2.05]">
                         <sup className={cn(
                           "mr-1.5 text-[10px] font-bold",
                           highlightVerse === v.verse ? "text-gold-500" : "text-gold-500/50",
@@ -584,7 +586,7 @@ export function BiblePage() {
                 </div>
 
                 {/* Chapter prev/next at bottom */}
-                <div className="flex gap-3">
+                <div className="mx-auto w-full max-w-2xl flex gap-3">
                   {canPrev && (
                     <button onClick={() => goChapter(-1)} className="btn-secondary flex-1 text-sm">
                       <ChevronLeft size={16} /> Ch. {selectedChapter - 1}
@@ -623,7 +625,7 @@ function BookGrid({
   return (
     <section>
       <h2 className="mb-3 text-xs font-bold uppercase tracking-caps text-gold-500">{label}</h2>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         {books.map((book, i) => (
           <button
             key={book.name}
