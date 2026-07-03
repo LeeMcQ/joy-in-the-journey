@@ -60,7 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             "safe-bottom",
           )}
         >
-          <div className="flex items-stretch">
+          <div className="mx-auto flex w-full max-w-4xl items-stretch">
             {tabs.map((tab) => {
               const Icon    = tab.icon;
               const isActive = tab.isAI ? showAIChat : tab.path === activeTab?.path;
