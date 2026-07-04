@@ -66,12 +66,13 @@ async function fetchFromBibleApi(
 // ─── AI Streaming ───────────────────────────────────────────────────────────
 
 async function streamTheologyAI(
-  reference: string, verseText: string, mode: AIMode,
+  reference: string, verseText: string, mode: AIMode, translation: string,
   onChunk: (text: string) => void, signal: AbortSignal
 ): Promise<void> {
   const messages = buildMessages({
     task: "scripture",
     mode,
+    translation,
     vars: { reference, verseText },
   });
   await streamWithAI(mode, messages, onChunk, signal);
@@ -189,7 +190,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
     const verseText = d?.verses.map((v) => v.text).join(" ") ?? reference;
     setShowAi(true); setAiCollapsed(false); setAiText(""); setAiError(null); setAiLoading(true);
     try {
-      await streamTheologyAI(reference, verseText, mode, (chunk) => {
+      await streamTheologyAI(reference, verseText, mode, d?.translation ?? activeTab, (chunk) => {
         setAiText((prev) => prev + chunk);
         requestAnimationFrame(() => { if (aiBodyRef.current) aiBodyRef.current.scrollTop = aiBodyRef.current.scrollHeight; });
       }, abortRef.current.signal);

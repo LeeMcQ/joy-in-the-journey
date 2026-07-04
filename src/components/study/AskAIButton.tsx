@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Sparkles, Loader2, X, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
+import { useAppStore } from "@/store/useAppStore";
 import {
   streamWithAI,
   buildMessages,
@@ -27,6 +28,7 @@ export function AskAIButton({
   studyNote,
   userAnswer,
 }: Props) {
+  const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function AskAIButton({
     const messages = buildMessages({
       task: "question",
       mode: m,
+      translation: bibleBookmark?.translation,
       vars: {
         studyTitle,
         studyIntro,
