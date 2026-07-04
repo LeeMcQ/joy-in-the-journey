@@ -288,7 +288,7 @@ export async function getChapter(
     const installed = await isTranslationInstalled("XHO75");
     if (!installed) throw new Error("Xhosa Bible not installed. Download it in Settings → Bible Languages.");
     const rows = await getChapterFromDB("XHO75", bookName, chapter);
-    if (!rows.length) throw new Error(`${bookName} ${chapter} not found in XHO75.`);
+    if (!rows.length) throw new Error(`"${bookName}" is not yet included in the Xhosa 1975 Bible. Please try another book or switch translation.`);
     const verses: LocalVerse[] = rows.map((v) => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }));
     return { reference: `${bookName} ${chapter}`, translation, verses, text: verses.map((v) => v.text).join(" ") };
   }
@@ -390,6 +390,34 @@ export async function downloadTranslation(
   onProgress: (p: DownloadProgress) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  // Xhosa lives in the separate IndexedDB engine (nested schema + FTS).
+  // Delegate so the Bible page's download control installs it correctly
+  // instead of fetching a non-existent flat file.
+  if (translation === "xho") {
+    const { installTranslation } = await import("@/lib/bibleDB");
+    await installTranslation(
+      "XHO75",
+      (p) => {
+        const denom = p.total || 1;
+        const scaled = Math.min(TOTAL_CHAPTERS, Math.round((p.done / denom) * TOTAL_CHAPTERS));
+        const label =
+          p.phase === "fetching"  ? "Laai Xhosa Bybel af…" :
+          p.phase === "importing" ? "Stoor verse…" :
+          p.phase === "indexing"  ? "Bou soekindeks…" :
+          "";
+        onProgress({
+          total: TOTAL_CHAPTERS,
+          done: p.phase === "done" ? TOTAL_CHAPTERS : scaled,
+          currentBook: label,
+          status: p.phase === "error" ? "error" : p.phase === "done" ? "done" : "downloading",
+          error: p.error,
+        });
+      },
+      signal,
+    );
+    return;
+  }
+
   onProgress({ total: TOTAL_CHAPTERS, done: 0, currentBook: "Laai Bybellêer…", status: "downloading" });
 
   const allVerses = await loadFullBibleIntoMemory(translation, signal);
@@ -469,6 +497,13 @@ export async function downloadTranslation(
 /* ── Cache stats ──────────────────────────────────────── */
 
 export async function getCachedChapterCount(translation: TranslationId): Promise<number> {
+  // Xhosa is stored in the separate engine; report full/none from its install state.
+  if (translation === "xho") {
+    try {
+      const { isTranslationInstalled } = await import("@/lib/bibleDB");
+      return (await isTranslationInstalled("XHO75")) ? TOTAL_CHAPTERS : 0;
+    } catch { return 0; }
+  }
   try {
     const db = await openDB();
     return new Promise((resolve) => {
