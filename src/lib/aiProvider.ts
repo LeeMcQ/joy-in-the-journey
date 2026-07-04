@@ -104,6 +104,23 @@ export const MODE_DIRECTIVE: Record<AIMode, string> = {
     'DEPTH: Thorough. Use the following headings, skipping any that do not genuinely apply: **Plain Meaning**, **Deeper Meaning** (says / teaches / don\'t-infer), **Original Language** (only if a word matters), **Biblical Context**, **Spirit of Prophecy** (only if relevant, with source), **Cross-References**, **Adventist Understanding**, **Application**, **Key Takeaway** (one sentence), **Go Deeper** (three progressively deeper questions).',
 };
 
+/* ── Language steering ──────────────────────────────────────────────
+ * The AI answers in the language of the Bible translation the learner is
+ * currently using: Afrikaans (afr) → Afrikaans, isiXhosa (xho) → isiXhosa.
+ * Any other translation (KJV / WEB) or none → English (the SYSTEM_PROMPT
+ * default, so no directive is added).
+ * ------------------------------------------------------------------- */
+export const LANGUAGE_DIRECTIVE: Record<string, string> = {
+  afr: "LANGUAGE: Respond ENTIRELY in Afrikaans — every sentence, every heading, every label, and the Key Takeaway. Write natural, modern Afrikaans. Bible book names and verse quotations may stay in their Afrikaans form. Do not reply in English unless the learner explicitly asks you to.",
+  xho: "LANGUAGE: Respond ENTIRELY in isiXhosa — every sentence, every heading, every label, and the Key Takeaway. Write natural, modern isiXhosa. Do not reply in English unless the learner explicitly asks you to.",
+};
+
+/** Map a Bible translation id (any case) to a language directive, if any. */
+export function languageDirectiveFor(translation?: string): string {
+  if (!translation) return "";
+  return LANGUAGE_DIRECTIVE[translation.toLowerCase()] ?? "";
+}
+
 export type AITask = "chat" | "scripture" | "question";
 
 export interface AIContext {
@@ -117,6 +134,8 @@ export interface BuildMessagesArgs {
   mode: AIMode;
   context?: AIContext;
   history?: ChatMessage[];
+  /** Active Bible translation id (e.g. "afr", "xho") — steers the reply language. */
+  translation?: string;
   /** Raw user input for free-form chat. */
   userText?: string;
   /** Template variables for scripture / question tasks. */
@@ -134,16 +153,18 @@ export interface BuildMessagesArgs {
 
 /** Assemble [system, ...history, user] for any AI surface. */
 export function buildMessages(args: BuildMessagesArgs): ChatMessage[] {
-  const { task, mode, context, history = [], userText = "", vars = {} } = args;
+  const { task, mode, context, history = [], userText = "", vars = {}, translation } = args;
 
   const contextLine =
     context?.studyTitle && task === "chat"
       ? `\n\nThe learner is currently reading "${context.studyTitle}".`
       : "";
 
+  const langLine = languageDirectiveFor(translation);
+
   const system: ChatMessage = {
     role: "system",
-    content: `${SYSTEM_PROMPT}\n\n${MODE_DIRECTIVE[mode]}${contextLine}`,
+    content: `${SYSTEM_PROMPT}\n\n${MODE_DIRECTIVE[mode]}${contextLine}${langLine ? `\n\n${langLine}` : ""}`,
   };
 
   let userContent = userText;
