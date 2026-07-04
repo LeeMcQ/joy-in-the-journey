@@ -286,7 +286,7 @@ export async function getChapter(
   if (translation === "xho") {
     const { getChapterFromDB, isTranslationInstalled } = await import("@/lib/bibleDB");
     const installed = await isTranslationInstalled("XHO75");
-    if (!installed) throw new Error("Xhosa Bible not installed. Download it in Settings → Bible Languages.");
+    if (!installed) throw new Error("The Xhosa Bible hasn't been downloaded yet.");
     const rows = await getChapterFromDB("XHO75", bookName, chapter);
     if (!rows.length) throw new Error(`"${bookName}" is not yet included in the Xhosa 1975 Bible. Please try another book or switch translation.`);
     const verses: LocalVerse[] = rows.map((v) => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }));
@@ -314,10 +314,13 @@ export async function getChapter(
     if (verses.length > 0) await setInCache(key, verses);
     return { reference: `${bookName} ${chapter}`, translation, verses, text: verses.map((v) => v.text).join(" ") };
   } catch (err) {
+    const detail = String((err as Error)?.message ?? err).replace(/^Error:\s*/i, "");
     throw new Error(
       navigator.onLine
-        ? `Failed to load ${bookName} ${chapter}: ${err}`
-        : "Jy is vanlyn. Laai hierdie Bybelvertaling eers af, of koppel aan die internet.",
+        ? `Could not load ${bookName} ${chapter}. ${detail}`
+        : translation === "afr"
+          ? "Jy is vanlyn. Laai hierdie Bybelvertaling eers af, of koppel aan die internet."
+          : "You're offline. Download this translation first, or connect to the internet.",
     );
   }
 }
