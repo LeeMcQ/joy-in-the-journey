@@ -156,6 +156,27 @@ export interface InstallProgress {
 
 /* ── Install a translation ───────────────────────────── */
 
+/** Remove any existing verses (and the FTS index) for a translation. */
+async function clearTranslationData(db: IDBDatabase, translationId: string): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const tx    = db.transaction(S_VERSES, "readwrite");
+    const index = tx.objectStore(S_VERSES).index("by_translation");
+    const req   = index.openCursor(IDBKeyRange.only(translationId));
+    req.onsuccess = () => {
+      const cur = req.result;
+      if (cur) { cur.delete(); cur.continue(); } else resolve();
+    };
+    req.onerror = () => resolve();
+  });
+  // FTS store currently holds a single translation; clearing it fully is safe.
+  await new Promise<void>((resolve) => {
+    const tx  = db.transaction(S_FTS, "readwrite");
+    const req = tx.objectStore(S_FTS).clear();
+    req.onsuccess = () => resolve();
+    req.onerror   = () => resolve();
+  });
+}
+
 export async function installTranslation(
   translationId: string,
   onProgress: (p: InstallProgress) => void,
@@ -181,11 +202,20 @@ export async function installTranslation(
   const bible: JsonBible = await res.json();
   if (bible.available === false) throw new Error(bible.note ?? `${translationId} is not available.`);
 
-  // Flatten to verse array
+  // Flatten to verse array, de-duplicating by reference.
+  // The verses store has a UNIQUE index on [translation, book, chapter, verse].
+  // Some source corpora repeat verses (e.g. a book appearing twice), and a
+  // single duplicate would throw ConstraintError and abort the whole import —
+  // which is exactly what stopped the Xhosa Bible from installing. Keep the
+  // first occurrence of each reference.
+  const seenRef = new Set<string>();
   const allVerses: Omit<BibleVerse, "id">[] = [];
   for (const book of bible.books) {
     for (const chapter of book.chapters) {
       for (const v of chapter.verses) {
+        const ref = `${book.name}|${chapter.chapter}|${v.verse}`;
+        if (seenRef.has(ref)) continue;
+        seenRef.add(ref);
         allVerses.push({
           translation: translationId,
           book: book.name,
@@ -203,6 +233,11 @@ export async function installTranslation(
   // Phase 2: batch-import verses
   const BATCH   = 500;
   const db      = await openDB();
+
+  // Clear any leftovers from a previous partial/failed install so a retry
+  // starts clean (otherwise old rows collide with the unique reference index).
+  await clearTranslationData(db, translationId);
+
   const verseIds: number[] = [];
 
   for (let i = 0; i < allVerses.length; i += BATCH) {
