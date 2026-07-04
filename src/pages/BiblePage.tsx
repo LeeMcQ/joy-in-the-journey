@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Search, X, BookMarked, ChevronLeft, ChevronRight, ChevronDown,
   Loader2, WifiOff, Download, CheckCircle2,
@@ -23,7 +23,6 @@ type ViewMode = "bookSelect" | "chapterSelect" | "reading" | "search" | "downloa
 export function BiblePage() {
   const { isDark } = useTheme();
   const isOnline = useOnlineStatus();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const setBibleBookmark = useAppStore((s) => s.setBibleBookmark);
@@ -123,7 +122,7 @@ export function BiblePage() {
 
     getChapter(selectedBook.name, selectedChapter, translation)
       .then((data) => { if (!cancelled) { setChapterData(data); setLoading(false); } })
-      .catch((err) => { if (!cancelled) { setError(String(err)); setLoading(false); } });
+      .catch((err) => { if (!cancelled) { setError(String((err as Error)?.message ?? err).replace(/^Error:\s*/i, "")); setLoading(false); } });
 
     return () => { cancelled = true; };
   }, [view, selectedBook, selectedChapter, translation]);
@@ -163,8 +162,17 @@ export function BiblePage() {
 
     downloadTranslation(tid, setDlProgress, controller.signal)
       .catch((err) => {
-        if (!String(err).includes("Cancelled")) {
-          setDlProgress((p) => p ? { ...p, status: "error", error: String(err) } : null);
+        const msg = String((err as Error)?.message ?? err);
+        if (/cancelled|gekanselleer/i.test(msg)) {
+          setDlProgress(null); // user cancelled — not an error
+        } else {
+          setDlProgress((p) => ({
+            total: p?.total ?? 1189,
+            done: p?.done ?? 0,
+            currentBook: "",
+            status: "error",
+            error: msg.replace(/^Error:\s*/i, ""),
+          }));
         }
       })
       .finally(() => {
@@ -545,7 +553,7 @@ export function BiblePage() {
                 {translation === "xho" ? (
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-xs text-amber-500">The Xhosa Bible needs to be downloaded first.</p>
-                    <button onClick={() => navigate("/more")} className="btn-secondary text-xs"><Download size={13} /> Download in Settings</button>
+                    <button onClick={() => setView("download")} className="btn-secondary text-xs"><Download size={13} /> Download now</button>
                   </div>
                 ) : !isOnline ? (
                   <div className="flex flex-col gap-2">

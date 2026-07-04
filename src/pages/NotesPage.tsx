@@ -77,7 +77,7 @@ export function NotesPage() {
   const openShare = (text: string, title: string) => setShareModal({ open: true, text, title });
 
   return (
-    <div className="flex flex-col gap-4 px-5 pb-4 pt-10">
+    <div className="mx-auto w-full max-w-3xl flex flex-col gap-4 px-5 pb-4 pt-10 md:px-8">
       <h1 className="font-display text-[24px] font-bold">My Spiritual Journal</h1>
 
       {/* Milestone badges */}

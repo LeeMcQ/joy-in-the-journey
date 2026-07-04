@@ -103,7 +103,7 @@ export function MorePage() {
 
 
   return (
-    <div className="flex flex-col gap-5 px-5 pb-8 pt-10">
+    <div className="mx-auto w-full max-w-2xl flex flex-col gap-5 px-5 pb-8 pt-10 md:px-8">
       <h1 className="font-display text-[24px] font-bold">Settings</h1>
 
       {/* ── Install App ─────────────────────────────────── */}

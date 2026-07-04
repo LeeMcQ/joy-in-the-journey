@@ -50,7 +50,7 @@ export function HomePage() {
   return (
     <>
       {showSetup && <StudyPlanSetup onComplete={() => setShowSetup(false)} />}
-      <div className="flex flex-col gap-5 px-5 pb-4">
+      <div className="mx-auto w-full max-w-3xl flex flex-col gap-5 px-5 pb-4 md:px-8">
         {/* Greeting */}
         <div className="pt-12">
           <p className="text-secondary text-sm font-medium">{greeting()}</p>

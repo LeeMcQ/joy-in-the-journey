@@ -169,7 +169,7 @@ export function StudyPage() {
         </div>
 
         {/* ── STUDY CONTENT ──────────────────────────────── */}
-        <div className="flex flex-col gap-6 px-5 pb-12 pt-7">
+        <div className="mx-auto w-full max-w-2xl flex flex-col gap-6 px-5 pb-12 pt-7 md:px-8">
 
           {/* Arrow header */}
           <ArrowHeader

@@ -37,7 +37,7 @@ export function StudyListPage() {
   const completedCount = studies.filter((s) => progress[s.id]?.completed).length;
 
   return (
-    <div className="flex flex-col gap-5 px-5 pb-4 pt-10">
+    <div className="mx-auto w-full max-w-3xl flex flex-col gap-5 px-5 pb-4 pt-10 md:px-8">
       {/* ── Page header ──────────────────────────────────── */}
       <div>
         <h1 className="font-display text-[24px] font-bold">
@@ -73,7 +73,7 @@ export function StudyListPage() {
       </div>
 
       {/* ── Study list ───────────────────────────────────── */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 md:grid md:grid-cols-2">
         {filtered.map((study, i) => (
           <StudyListItem
             key={study.id}
