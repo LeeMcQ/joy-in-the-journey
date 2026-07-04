@@ -5,6 +5,7 @@ import { Sparkles, Send, Loader2, ChevronDown, Square } from "lucide-react";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/store/useAppStore";
 import {
   streamWithAI,
   buildMessages,
@@ -41,6 +42,7 @@ function loadHistory(): ChatMessage[] {
 
 export function GlobalAIChat({ open, onClose, context }: Props) {
   const { isDark } = useTheme();
+  const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [loading, setLoading] = useState(false);
@@ -99,6 +101,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
       task: "chat",
       mode,
       context,
+      translation: bibleBookmark?.translation,
       history,
       userText: text,
     });
