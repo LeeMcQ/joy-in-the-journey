@@ -13,6 +13,8 @@ export interface BibleTranslation {
   available: boolean;
   note?: string;
   jsonPath: string;
+  /** Bump when the shipped data file changes so stale installs re-download. */
+  dataVersion: number;
 }
 
 export interface BibleVerse {
@@ -37,6 +39,7 @@ export const TRANSLATIONS: BibleTranslation[] = [
     fullName: "IBhayibhile 1975 (Xhosa)",
     available: true,
     jsonPath: "/bibles/xhosa/xho75.json",
+    dataVersion: 2,
   },
 ];
 
@@ -108,11 +111,19 @@ export async function getInstalledTranslations(): Promise<string[]> {
 }
 
 export async function isTranslationInstalled(id: string): Promise<boolean> {
-  return (await getInstalledTranslations()).includes(id);
+  if (!(await getInstalledTranslations()).includes(id)) return false;
+  // Treat an out-of-date data file as "not installed" so users who installed an
+  // older, incomplete version automatically re-download the corrected one.
+  const meta = TRANSLATIONS.find((t) => t.id === id);
+  if (!meta) return true;
+  const storedVersion = Number(await getMeta(`dataVersion:${id}`)) || 1;
+  return storedVersion >= meta.dataVersion;
 }
 
 async function markInstalled(id: string): Promise<void> {
   const list = await getInstalledTranslations();
+  const meta = TRANSLATIONS.find((t) => t.id === id);
+  await setMeta(`dataVersion:${id}`, meta?.dataVersion ?? 1);
   if (!list.includes(id)) await setMeta("installedTranslations", [...list, id]);
 }
 
