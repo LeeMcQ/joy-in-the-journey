@@ -10,6 +10,17 @@ const PROXY_URL =
   (import.meta.env.VITE_AI_PROXY_URL as string | undefined) ||
   "https://sda-bible-ai.mcquir4l.workers.dev";
 
+/**
+ * Which proxy route a mode uses.
+ * Depth is driven by the prompt (MODE_DIRECTIVE), not the endpoint, so both
+ * modes are served by the "/normal" Groq route — the one already deployed and
+ * working on Cloudflare. (To use a separate "/deep" provider later, return
+ * `mode` here instead.)
+ */
+function endpointFor(_mode: AIMode): string {
+  return "normal";
+}
+
 export type AIMode = "normal" | "deep";
 
 /* ── Mode preference ───────────────────────────────────────────────── */
@@ -189,6 +200,20 @@ export function buildMessages(args: BuildMessagesArgs): ChatMessage[] {
 
 /* ── Non-streaming chat ────────────────────────────────────────────── */
 
+/** Turn an upstream HTTP failure into a short, human message (no raw JSON). */
+function friendlyAIError(status: number, body: string): string {
+  const lower = body.toLowerCase();
+  if (status === 429 || lower.includes("quota") || lower.includes("rate limit"))
+    return "The study assistant is busy right now (usage limit reached). Please wait a minute and try again.";
+  if (status === 401 || status === 403)
+    return "The study assistant isn't configured correctly. Please try again later.";
+  if (status === 404)
+    return "The study assistant couldn't be reached. Please try again later.";
+  if (status >= 500)
+    return "The study assistant is temporarily unavailable. Please try again in a moment.";
+  return "Couldn't reach the study assistant. Please check your connection and try again.";
+}
+
 export async function chatWithAI(
   mode: AIMode,
   messages: ChatMessage[],
@@ -196,7 +221,7 @@ export async function chatWithAI(
 ): Promise<string> {
   if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
 
-  const res = await fetch(`${PROXY_URL}/${mode}`, {
+  const res = await fetch(`${PROXY_URL}/${endpointFor(mode)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, max_tokens: 1200, stream: false }),
@@ -204,8 +229,7 @@ export async function chatWithAI(
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`AI error (${res.status}): ${err}`);
+    throw new Error(friendlyAIError(res.status, await res.text().catch(() => "")));
   }
 
   const data = await res.json();
@@ -222,7 +246,7 @@ export async function streamWithAI(
 ): Promise<void> {
   if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
 
-  const res = await fetch(`${PROXY_URL}/${mode}`, {
+  const res = await fetch(`${PROXY_URL}/${endpointFor(mode)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, max_tokens: 4096, stream: true }),
@@ -230,8 +254,7 @@ export async function streamWithAI(
   });
 
   if (!res.ok || !res.body) {
-    const err = await res.text();
-    throw new Error(`AI stream error (${res.status}): ${err}`);
+    throw new Error(friendlyAIError(res.status, await res.text().catch(() => "")));
   }
 
   const reader = res.body.getReader();
