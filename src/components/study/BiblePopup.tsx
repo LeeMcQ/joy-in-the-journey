@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  X, Copy, BookOpen, Sparkles, Loader2,
-  WifiOff, ChevronDown, ChevronUp, Share2, ExternalLink, Bookmark,
+  X, BookOpen, Sparkles, Loader2,
+  ChevronDown, ChevronUp, Share2, ExternalLink, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -85,7 +85,7 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
     <button
       onClick={onClick}
       className={cn(
-        "px-4 py-1.5 rounded-xl text-sm font-bold transition-all flex-shrink-0",
+        "flex-1 min-w-0 px-2 py-1.5 rounded-xl text-sm font-bold text-center transition-all",
         active ? "bg-gold-500 text-navy-900 shadow-md" : "bg-white/8 text-white/60 hover:bg-white/15 hover:text-white"
       )}
     >
@@ -106,7 +106,6 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
   const [cache, setCache] = useState<Partial<Record<InlineTab, VerseData>>>({});
   const [loading, setLoading] = useState<Partial<Record<InlineTab, boolean>>>({ afr: true });
   const [tabErr, setTabErr] = useState<Partial<Record<InlineTab, string>>>({});
-  const [online, setOnline] = useState(navigator.onLine);
   const [showAi, setShowAi] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -121,13 +120,6 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
     setAiMode(mode); storeMode(mode);
     if (showAi && !aiLoading) { setAiText(""); setAiError(null); handleAskAIWithMode(mode); }
   };
-
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on); window.addEventListener("offline", off);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
-  }, []);
 
   const fetchVerse = useCallback(async (tab: InlineTab) => {
     if (cache[tab]) return;
@@ -145,15 +137,6 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   const handleTab = (tab: InlineTab) => { setActiveTab(tab); fetchVerse(tab); };
-
-  // ── Copy ──
-  const handleCopy = async () => {
-    const d = cache[activeTab];
-    if (!d) return;
-    const text = `${d.reference} (${d.translation})\n\n${d.verses.map((v) => `${v.verse} ${v.text}`).join("\n")}`;
-    await navigator.clipboard.writeText(text);
-    showToast("Copied!", { type: "success" });
-  };
 
   // ── Share verse ──
   const handleShare = () => {
@@ -211,7 +194,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-navy-800 rounded-t-2xl shadow-2xl"
+        className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:max-w-2xl flex flex-col bg-navy-800 rounded-t-2xl shadow-2xl"
         style={{ maxHeight: "88dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)" }}
         role="dialog" aria-modal="true" aria-label={`Scripture: ${reference}`}
         onClick={(e) => e.stopPropagation()}
@@ -233,29 +216,25 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
         </div>
 
         {/* Translation tabs row */}
-        <div
-          className="flex items-center gap-2 px-5 pb-3 flex-shrink-0"
-          style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
-        >
+        <div className="flex items-center gap-1.5 px-4 pb-3 flex-shrink-0">
           <TabBtn label="AFR" active={activeTab === "afr"} onClick={() => handleTab("afr")} />
           <TabBtn label="KJV" active={activeTab === "kjv"} onClick={() => handleTab("kjv")} />
           <TabBtn label="WEB" active={activeTab === "web"} onClick={() => handleTab("web")} />
           <TabBtn label="XHO" active={activeTab === "xho"} onClick={() => handleTab("xho")} />
 
-          <div className="w-px h-6 bg-white/15 mx-1 flex-shrink-0" />
-
-          {/* Bible Gateway dropdown — always GNB first */}
+          {/* Bible Gateway (online versions) — compact so it always fits */}
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowBGMenu((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold bg-white/8 text-white/60 hover:bg-white/15 hover:text-white transition-all"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-bold bg-white/8 text-white/60 hover:bg-white/15 hover:text-white transition-all"
+              aria-label="More versions"
             >
-              <ExternalLink size={12} />
-              <span>More</span>
+              <ExternalLink size={13} />
               <ChevronDown size={11} className={cn("transition-transform", showBGMenu && "rotate-180")} />
             </button>
             {showBGMenu && (
-              <div className="absolute top-full left-0 mt-1 z-10 min-w-[130px] rounded-xl bg-navy-700 border border-white/10 shadow-xl overflow-hidden">
+              <div className="absolute top-full right-0 mt-1 z-10 min-w-[150px] rounded-xl bg-navy-700 border border-white/10 shadow-xl overflow-hidden">
+                <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-white/40">Open online</p>
                 {BG_TRANSLATIONS.map((t) => (
                   <a
                     key={t.id}
@@ -272,12 +251,6 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
               </div>
             )}
           </div>
-
-          {!online && (
-            <div className="flex items-center gap-1 text-white/40 flex-shrink-0 ml-1">
-              <WifiOff size={12} /><span className="text-xs">Offline</span>
-            </div>
-          )}
         </div>
 
         {/* Verse content */}
@@ -359,15 +332,6 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
             className="flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-semibold bg-white/8 text-white/70 hover:bg-white/15 hover:text-white transition-all disabled:opacity-30"
           >
             <Share2 size={14} /><span>Share</span>
-          </button>
-
-          {/* Copy */}
-          <button
-            onClick={handleCopy}
-            disabled={!cur}
-            className="flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-semibold bg-white/8 text-white/70 hover:bg-white/15 hover:text-white transition-all disabled:opacity-30"
-          >
-            <Copy size={14} /><span>Copy</span>
           </button>
 
           {/* Highlight / save */}

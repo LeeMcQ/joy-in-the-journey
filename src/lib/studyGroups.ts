@@ -1,9 +1,10 @@
-/* REC 8 — Study Group system — localStorage only, no backend */
+/* Study Group system — localStorage only, no backend. Supports multiple groups. */
 
 export interface StudyGroup { code: string; name: string; createdAt: string; role: "creator" | "member"; }
 export interface GroupActivity { type: "completion" | "streak"; studyNumber?: number; studyTitle?: string; streakDays?: number; timestamp: string; }
 
-const GROUP_KEY = "joy-study-group";
+const GROUPS_KEY   = "joy-study-groups";  // array of groups
+const LEGACY_KEY   = "joy-study-group";   // pre-multi single group
 const ACTIVITY_KEY = "joy-group-activity";
 
 export function generateGroupCode(): string {
@@ -11,29 +12,53 @@ export function generateGroupCode(): string {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
+/** All groups the user belongs to. Migrates a legacy single group on first read. */
+export function getGroups(): StudyGroup[] {
+  try {
+    const raw = localStorage.getItem(GROUPS_KEY);
+    if (raw) return JSON.parse(raw) as StudyGroup[];
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const g = JSON.parse(legacy) as StudyGroup;
+      localStorage.setItem(GROUPS_KEY, JSON.stringify([g]));
+      localStorage.removeItem(LEGACY_KEY);
+      return [g];
+    }
+    return [];
+  } catch { return []; }
+}
+
+function saveGroups(list: StudyGroup[]): void {
+  localStorage.setItem(GROUPS_KEY, JSON.stringify(list));
+}
+
 export function createGroup(name: string): StudyGroup {
   const group: StudyGroup = { code: generateGroupCode(), name, createdAt: new Date().toISOString(), role: "creator" };
-  localStorage.setItem(GROUP_KEY, JSON.stringify(group));
+  saveGroups([...getGroups(), group]);
   return group;
 }
 
 export function joinGroup(code: string, name: string): StudyGroup {
-  const group: StudyGroup = { code: code.toUpperCase().trim(), name: name || `Group ${code.toUpperCase()}`, createdAt: new Date().toISOString(), role: "member" };
-  localStorage.setItem(GROUP_KEY, JSON.stringify(group));
+  const norm = code.toUpperCase().trim();
+  const existing = getGroups();
+  const dup = existing.find((g) => g.code === norm);
+  if (dup) return dup; // already a member
+  const group: StudyGroup = { code: norm, name: name || `Group ${norm}`, createdAt: new Date().toISOString(), role: "member" };
+  saveGroups([...existing, group]);
   return group;
 }
 
-export function getGroup(): StudyGroup | null {
-  try { const r = localStorage.getItem(GROUP_KEY); return r ? JSON.parse(r) as StudyGroup : null; } catch { return null; }
+export function leaveGroup(code: string): void {
+  saveGroups(getGroups().filter((g) => g.code !== code));
 }
 
-export function leaveGroup(): void {
-  localStorage.removeItem(GROUP_KEY);
-  localStorage.removeItem(ACTIVITY_KEY);
+/** Legacy accessor — first group, or null. */
+export function getGroup(): StudyGroup | null {
+  return getGroups()[0] ?? null;
 }
 
 export function logGroupActivity(activity: Omit<GroupActivity, "timestamp">): void {
-  if (!getGroup()) return;
+  if (getGroups().length === 0) return;
   const updated = [{ ...activity, timestamp: new Date().toISOString() }, ...getGroupActivity()].slice(0, 50);
   localStorage.setItem(ACTIVITY_KEY, JSON.stringify(updated));
 }

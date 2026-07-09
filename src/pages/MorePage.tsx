@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sun,
   Moon,
@@ -10,11 +10,8 @@ import {
   Download,
   Smartphone,
   Share,
-  Wifi,
-  WifiOff,
   Highlighter,
   CheckCircle2,
-  Heart,
   Bell,
   BellOff,
   Clock,
@@ -24,20 +21,18 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { BibleLanguageManager } from "@/components/ui/BibleLanguageManager";
+import { StudyPlanSetup } from "@/components/ui/StudyPlanSetup";
 import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useReadingStyle, FONT_LABELS } from "@/hooks/useReadingStyle";
 import { showToast } from "@/components/ui/Toast";
 import { isSoundEnabled, setSoundEnabled } from "@/lib/audio";
-import {
-  getStoredMode,
-  storeMode,
-  type AIMode,
-} from "@/lib/aiProvider";
+import { shareOrCopy } from "@/lib/sharing";
 import { cn } from "@/lib/utils";
 import type { AppSettings, FontFamily } from "@/data/types";
 
@@ -57,20 +52,14 @@ const FONT_CSS: Record<FontFamily, string> = {
   mono: '"Source Code Pro", monospace',
 };
 
-/**
- * Bible versions shown in the selector.
- * AFR, KJV, WEB = local/downloadable. GNB, ESV = online via BibleGateway.
- * The selector here only controls the MorePage preview & study display —
- * the BiblePage has its own translation switcher.
- */
-const bibleVersions = ["AFR", "KJV", "WEB", "GNB", "ESV"];
-
-const PACE_LABELS: Record<string, string> = {
-  "28days": "28 Days (1/day)",
-  "28weeks": "28 Weeks (1/week)",
-  "1year": "1 Year",
-  custom: "Custom",
-};
+const APP_SHARE_MESSAGE = [
+  `✝️ *SDA Bible Study Companion*`,
+  ``,
+  `A free Bible study app with 28 Adventist studies, an offline Bible, journaling and study groups.`,
+  ``,
+  `Get it here:`,
+  `leemcq.github.io/joy-in-the-journey`,
+].join("\n");
 
 /* ── Page ─────────────────────────────────────────────── */
 
@@ -79,11 +68,10 @@ export function MorePage() {
   const theme = useAppStore((s) => s.settings.theme);
   const fontSize = useAppStore((s) => s.settings.fontSize);
   const fontFamily = useAppStore((s) => s.settings.fontFamily);
-  const bibleVersion = useAppStore((s) => s.settings.bibleVersion);
+  const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const setTheme = useAppStore((s) => s.setTheme);
   const setFontSize = useAppStore((s) => s.setFontSize);
   const setFontFamily = useAppStore((s) => s.setFontFamily);
-  const setBibleVersion = useAppStore((s) => s.setBibleVersion);
   const setReminder = useAppStore((s) => s.setReminder);
   const studies = useAppStore((s) => s.studies);
   const progress = useAppStore((s) => s.progress);
@@ -91,8 +79,20 @@ export function MorePage() {
 
   const { canInstall, isInstalled, isIOS, install } = useInstallPrompt();
   const readingStyle = useReadingStyle();
-  const [isOnline] = useState(() => navigator.onLine);
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
+  const [showPlanSetup, setShowPlanSetup] = useState(false);
+
+  // Show the Bible Languages downloader only while a translation is still missing.
+  const [bibleLangsPending, setBibleLangsPending] = useState(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { TRANSLATIONS, isTranslationInstalled } = await import("@/lib/bibleDB");
+        const installed = await Promise.all(TRANSLATIONS.map((t) => isTranslationInstalled(t.id)));
+        setBibleLangsPending(installed.some((ok) => !ok));
+      } catch { setBibleLangsPending(true); }
+    })();
+  }, []);
 
   const totalAnswered = useAppStore((s) => s.totalAnswered());
   const totalHL = useAppStore((s) => s.totalHighlights());
@@ -104,43 +104,36 @@ export function MorePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl flex flex-col gap-5 px-5 pb-8 pt-10 md:px-8">
+      {showPlanSetup && <StudyPlanSetup onComplete={() => setShowPlanSetup(false)} />}
       <h1 className="font-display text-[24px] font-bold">Settings</h1>
 
-      {/* ── Install App ─────────────────────────────────── */}
-      {(canInstall || isIOS) && (
-        <div className="card card-gold mb-6 overflow-hidden">
-          <div className="flex items-center gap-3 p-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-500/15">
-              <Download size={20} className="text-gold-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold text-primary">Install SDA Bible Study Companion</p>
-              <p className="text-sm text-muted">
-                {isIOS ? 'Tap Share → "Add to Home Screen"' : "Add to your home screen for offline access"}
-              </p>
-            </div>
-            {canInstall && (
-              <button
-                onClick={async () => {
-                  const ok = await install();
-                  if (ok) showToast("App installed! 🎉", { type: "success" });
-                }}
-                className="btn-primary px-6 py-2 text-sm font-semibold"
-              >
-                Install
-              </button>
-            )}
-            {isIOS && <Share size={20} className="shrink-0 text-gold-500" />}
+      {/* ── Share App ─────────────────────────────────────── */}
+      <Section icon={Share} title="Share App">
+        <p className="text-[12px] text-muted">Share the app with friends and family, or install it on this device for offline access.</p>
+        <button onClick={() => shareOrCopy(APP_SHARE_MESSAGE, (msg) => showToast(msg))} className="btn-primary w-full">
+          <Share size={16} /> Share app
+        </button>
+        {canInstall && (
+          <button
+            onClick={async () => {
+              const ok = await install();
+              if (ok) showToast("App installed! 🎉", { type: "success" });
+            }}
+            className="btn-secondary w-full"
+          >
+            <Download size={16} /> Install / download app
+          </button>
+        )}
+        {isIOS && !isInstalled && (
+          <p className="text-[12px] text-muted">On iPhone: tap <span className="font-semibold text-secondary">Share → Add to Home Screen</span> to install.</p>
+        )}
+        {isInstalled && (
+          <div className="flex items-center gap-2 rounded-xl bg-gold-500/10 px-3 py-2">
+            <Smartphone size={14} className="text-gold-500" />
+            <p className="text-sm font-medium text-gold-500">Installed on this device</p>
           </div>
-        </div>
-      )}
-
-      {isInstalled && (
-        <div className="mb-6 flex items-center gap-2 rounded-xl bg-gold-500/10 px-3 py-2">
-          <Smartphone size={14} className="text-gold-500" />
-          <p className="text-sm font-medium text-gold-500">App is installed on your device</p>
-        </div>
-      )}
+        )}
+      </Section>
 
       {/* ── Theme ────────────────────────────────────────── */}
       <Section icon={Palette} title="Appearance">
@@ -183,10 +176,32 @@ export function MorePage() {
         </button>
       </Section>
 
-      {/* ── Bible Languages ───────────────────────────────── */}
-      <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60 px-1 mt-2">Bible &amp; AI</p>
-      <Section icon={BookOpen} title="Bible Languages">
-        <BibleLanguageManager />
+      {/* ── Bible Languages (only while something is still downloadable) ── */}
+      {bibleLangsPending && (
+        <Section icon={BookOpen} title="Bible Languages">
+          <BibleLanguageManager />
+        </Section>
+      )}
+
+      {/* ── Study Plan ────────────────────────────────────── */}
+      <Section icon={Calendar} title="Study Plan">
+        <button
+          onClick={() => setShowPlanSetup(true)}
+          className="card card-surface card-interactive flex w-full items-center gap-3 text-left"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-500/10">
+            <Calendar size={18} className="text-gold-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-primary">
+              {studyPlan.configured ? "Edit study plan" : "Set up study plan"}
+            </p>
+            <p className="text-muted text-[12px]">
+              {studyPlan.configured ? "Change your pace or start date" : "Choose a pace to get a daily study"}
+            </p>
+          </div>
+          <ArrowRight size={16} className="shrink-0 text-muted" />
+        </button>
       </Section>
 
       {/* ── Font Size ────────────────────────────────────── */}
@@ -255,31 +270,8 @@ export function MorePage() {
             "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life."
           </p>
           <p className="mt-1 text-[11px] italic text-muted" style={{ fontFamily: FONT_CSS[fontFamily] }}>
-            — John 3:16, {bibleVersion}
+            — John 3:16, {(bibleBookmark?.translation ?? "afr").toUpperCase()}
           </p>
-        </div>
-      </Section>
-
-      {/* ── Bible Version ────────────────────────────────── */}
-      <Section icon={BookOpen} title="Bible Version">
-        <p className="text-[11px] text-muted mb-2">
-          AFR, KJV, WEB kan vanlyn afgelaai word. GNB &amp; ESV open in BibleGateway.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {bibleVersions.map((v) => (
-            <button
-              key={v}
-              onClick={() => setBibleVersion(v)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-semibold transition-all",
-                bibleVersion === v
-                  ? "bg-gold-500 text-navy-900 shadow-gold-glow"
-                  : "bg-surface text-muted",
-              )}
-            >
-              {v}
-            </button>
-          ))}
         </div>
       </Section>
 
@@ -287,25 +279,6 @@ export function MorePage() {
       <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60 px-1 mt-2">Daily Rhythm</p>
       <Section icon={Sparkles} title="Study Group">
         <StudyGroupPanel variant="full" />
-      </Section>
-
-      {/* ── AI Settings ─────────────────────────────────── */}
-      <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60 px-1 mt-2">Reading Experience</p>
-      <AISettingsSection />
-
-      {/* ── Study Plan ───────────────────────────────────── */}
-      <Section icon={Calendar} title="Study Plan">
-        {studyPlan.configured ? (
-          <div className="flex flex-col gap-2 text-sm">
-            <Row label="Plan" value={PACE_LABELS[studyPlan.pace] ?? studyPlan.pace} />
-            {studyPlan.pace === "custom" && studyPlan.customDays && (
-              <Row label="Duration" value={`${studyPlan.customDays} days`} />
-            )}
-            <Row label="Started" value={new Date(studyPlan.startDate).toLocaleDateString()} />
-          </div>
-        ) : (
-          <p className="text-[13px] text-muted">No plan set — use the home screen to set one up.</p>
-        )}
       </Section>
 
       {/* ── Daily Reminder ───────────────────────────────── */}
@@ -352,40 +325,6 @@ export function MorePage() {
           <Row label="Questions answered" value={String(totalAnswered)} />
           <Row label="Highlights" value={String(totalHL)} icon={<Highlighter size={12} className="text-gold-500/60" />} />
           <Row label="Bookmarked" value={String(bookmarked)} />
-        </div>
-      </Section>
-
-      {/* ── Connection status ─────────────────────────────── */}
-      <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5">
-        {isOnline ? (
-          <><Wifi size={14} className="text-emerald-500" /><p className="text-[12px] text-muted">Online</p></>
-        ) : (
-          <><WifiOff size={14} className="text-amber-500" /><p className="text-[12px] text-muted">Offline — cached data available</p></>
-        )}
-      </div>
-
-      {/* ── About ────────────────────────────────────────── */}
-      <div className="card card-surface">
-        <div className="mb-2 flex items-center gap-2">
-          <Heart size={14} className="text-gold-500" />
-          <p className="text-xs font-bold uppercase tracking-caps text-gold-500">About</p>
-        </div>
-        <p className="text-[13px] leading-relaxed text-secondary">
-          <strong className="font-display text-sm">SDA Bible Study Companion</strong> — 28 interactive Bible studies grounded in Adventist theology.
-        </p>
-        <div className="divider my-3" />
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] text-muted">Version 1.0.0</p>
-          <p className="text-[11px] text-muted">PWA · React · TypeScript</p>
-        </div>
-      </div>
-
-      {/* ── About ────────────────────────────────────────── */}
-      <Section icon={BookOpen} title="About This App">
-        <div className="flex flex-col gap-2">
-          <p className="text-[13px] leading-relaxed text-muted">This app is an independent ministry tool built to support SDA Bible study. Content is based on the 28 Fundamental Beliefs of the Seventh-day Adventist Church.</p>
-          <a href="https://www.adventist.org" target="_blank" rel="noopener noreferrer" className="text-[13px] font-semibold text-gold-500">adventist.org ↗</a>
-          <p className="text-[11px] text-muted italic">Built with ♥ for the Southern African SDA community</p>
         </div>
       </Section>
 
@@ -451,53 +390,5 @@ function Row({
       <span className="text-[13px] text-muted">{label}</span>
       <span className="flex items-center gap-1.5 font-semibold">{icon}{value}</span>
     </div>
-  );
-}
-
-/* ── AI Settings sub-section ──────────────────────────── */
-
-function AISettingsSection() {
-  const [mode, setMode] = useState<AIMode>(getStoredMode);
-
-  const handleMode = (m: AIMode) => {
-    setMode(m);
-    storeMode(m);
-    showToast(`AI mode set to ${m === "deep" ? "Deep" : "Normal"}`, { type: "success" });
-  };
-
-  return (
-    <Section icon={Sparkles} title="AI Assistant">
-      <p className="text-[12px] leading-relaxed text-muted">
-        Choose how the AI responds. Switch anytime — your preference is saved.
-      </p>
-
-      <div className="grid grid-cols-2 gap-2">
-        {(["normal", "deep"] as AIMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => handleMode(m)}
-            className={cn(
-              "card card-surface card-interactive flex flex-col items-center gap-1 py-3 text-center",
-              mode === m && "bg-gold-500/5 ring-2 ring-gold-500/40",
-            )}
-          >
-            <span className="text-lg">{m === "normal" ? "⚡" : "🔬"}</span>
-            <span className="text-[13px] font-bold">
-              {m === "normal" ? "Normal" : "Deep"}
-            </span>
-            <span className="text-[11px] text-muted leading-tight text-center px-1">
-              {m === "normal"
-                ? "Fast everyday answers"
-                : "Thorough research-grade responses"}
-            </span>
-            {mode === m && (
-              <span className="mt-1 rounded-full bg-gold-500/20 px-2 py-0.5 text-2xs font-bold text-gold-500">
-                Active
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-    </Section>
   );
 }
