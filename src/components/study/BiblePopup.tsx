@@ -6,6 +6,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   getStoredMode, storeMode, streamWithAI, buildMessages,
+  AI_MODES, modeLabel,
   type AIMode,
 } from "@/lib/aiProvider";
 import { showToast } from "@/components/ui/Toast";
@@ -282,10 +283,10 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
                   <span className="text-gold-400 text-xs font-bold tracking-wide uppercase">AI Study</span>
                   {aiLoading && <Loader2 size={11} className="animate-spin text-gold-400/60 ml-1" />}
                   <div className="flex items-center rounded-lg bg-white/8 p-0.5 ml-1">
-                    {(["normal", "deep"] as AIMode[]).map((m) => (
+                    {AI_MODES.map((m) => (
                       <button key={m} onClick={() => handleModeChange(m)}
-                        className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-all", aiMode === m ? "bg-gold-500 text-navy-900" : "text-white/40 hover:text-white/60")}>
-                        {m === "normal" ? "Normal" : "Deep"}
+                        className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-all", aiMode === m ? "bg-gold-500 text-navy-900" : "text-white/40 hover:text-white/60")}>
+                        {modeLabel(m)}
                       </button>
                     ))}
                   </div>
@@ -301,7 +302,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
                 <div ref={aiBodyRef} className="px-4 py-3 space-y-0.5" style={{ maxHeight: "50dvh", overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
                   {aiError ? <p className="text-red-400 text-sm">{aiError}</p>
                     : aiText ? <MarkdownBlock text={aiText} />
-                    : aiLoading ? <p className="text-white/40 text-sm italic animate-pulse">Studying the scripture…</p>
+                    : aiLoading ? <p className="text-white/40 text-sm italic animate-pulse">{aiMode === "explanatory" ? "Writing script…" : "Studying the scripture…"}</p>
                     : null}
                 </div>
               )}
