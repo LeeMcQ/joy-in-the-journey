@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -23,7 +23,8 @@ export default function App() {
         <AppShell>
           <Suspense fallback={<PageSkeleton />}>
             <Routes location={location} key={location.pathname}>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<Navigate to="/bible" replace />} />
+              <Route path="/home" element={<HomePage />} />
               <Route path="/studies" element={<StudyListPage />} />
               <Route path="/study/:id" element={<StudyPage />} />
               <Route path="/bible" element={<BiblePage />} />

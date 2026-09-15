@@ -1,73 +1,71 @@
 /* ================================================================== */
 /*  AI Provider System                                                 */
-/*  All calls go through the Cloudflare Worker proxy.                 */
-/*  mode "normal"  → /normal  (fast everyday responses)              */
-/*  mode "deep"    → /deep    (thorough research-grade responses)     */
-/*  No API keys are ever stored or sent from the browser.             */
+/*  Browser calls DeepSeek OpenAI-compatible chat completions.        */
+/*  mode "normal"      → deepseek-chat (fast)                         */
+/*  mode "deep"        → deepseek-reasoner (non-stream) / deepseek-chat*/
+/*                       (stream — reasoner SSE can omit delta.content)*/
+/*  mode "explanatory" → deepseek-chat (long-form YouTube script)     */
+/*  API key: localStorage `joy-deepseek-api-key` or                    */
+/*           VITE_DEEPSEEK_API_KEY at build time.                      */
 /* ================================================================== */
 
-const PROXY_URL =
-  (import.meta.env.VITE_AI_PROXY_URL as string | undefined) ||
-  "https://sda-bible-ai.mcquir4l.workers.dev";
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_KEY_STORAGE = "joy-deepseek-api-key";
 
-/**
- * Which proxy route a mode uses.
- * Depth is driven by the prompt (MODE_DIRECTIVE), not the endpoint, so both
- * modes are served by the "/normal" Groq route — the one already deployed and
- * working on Cloudflare. (To use a separate "/deep" provider later, return
- * `mode` here instead.)
- */
-function endpointFor(_mode: AIMode): string {
-  return "normal";
+export type AIMode = "normal" | "deep" | "explanatory";
+
+/* ── DeepSeek API key ─────────────────────────────────────────────── */
+
+export function getDeepSeekKey(): string | null {
+  try {
+    const stored = localStorage.getItem(DEEPSEEK_KEY_STORAGE)?.trim();
+    if (stored) return stored;
+  } catch { /* private mode / unavailable */ }
+  const envKey = (import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined)?.trim();
+  return envKey || null;
 }
 
-export type AIMode = "normal" | "deep";
+export function storeDeepSeekKey(key: string): void {
+  localStorage.setItem(DEEPSEEK_KEY_STORAGE, key.trim());
+}
+
+export function clearDeepSeekKey(): void {
+  localStorage.removeItem(DEEPSEEK_KEY_STORAGE);
+}
+
+export function hasDeepSeekKey(): boolean {
+  return !!getDeepSeekKey();
+}
+
+function modelFor(mode: AIMode, stream: boolean): string {
+  // Explanatory always uses deepseek-chat (long-form script).
+  if (mode === "explanatory") return "deepseek-chat";
+  // Prefer reasoner for deep non-streaming answers. For SSE streaming use
+  // deepseek-chat so chunks arrive as choices[0].delta.content reliably.
+  if (mode === "deep" && !stream) return "deepseek-reasoner";
+  return "deepseek-chat";
+}
 
 /* ── Mode preference ───────────────────────────────────────────────── */
 
 const MODE_KEY = "joy-ai-mode";
 
 export function getStoredMode(): AIMode {
-  return (localStorage.getItem(MODE_KEY) as AIMode | null) ?? "normal";
+  const raw = localStorage.getItem(MODE_KEY);
+  if (raw === "normal" || raw === "deep" || raw === "explanatory") return raw;
+  return "normal";
 }
 
 export function storeMode(mode: AIMode): void {
   localStorage.setItem(MODE_KEY, mode);
 }
 
-/* ── Legacy stubs (kept so old imports don't break) ────────────────── */
-export type ProviderId = "normal" | "deep";
-export function getStoredProvider(): AIMode { return getStoredMode(); }
-export function storeProvider(id: AIMode): void { storeMode(id); }
-export function hasAnyKey(): boolean { return true; }
-export function getStoredKey(_: string): string | null { return "proxy"; }
-export function storeKey(_a: string, _b: string): void {}
+export const AI_MODES: AIMode[] = ["normal", "deep", "explanatory"];
 
-export const PROVIDERS = [
-  { id: "normal" as const, name: "Normal", emoji: "⚡", tier: "free" as const, description: "Fast everyday responses" },
-  { id: "deep"   as const, name: "Deep",   emoji: "🔬", tier: "free" as const, description: "Thorough research-grade responses" },
-];
-
-/* ── Prompt builder for study questions ────────────────────────────── */
-
-export function buildQuestionPrompt(context: {
-  studyTitle: string;
-  studyIntro: string;
-  questionText: string;
-  scriptureRef: string;
-  studyNote?: string;
-  userAnswer: string;
-}): string {
-  let prompt = `I'm studying "${context.studyTitle}".\n\n`;
-  prompt += `The study introduction says: "${context.studyIntro.slice(0, 300)}"\n\n`;
-  prompt += `Question: ${context.questionText}\n`;
-  prompt += `Scripture: ${context.scriptureRef}\n`;
-  if (context.studyNote) {
-    prompt += `Study note: ${context.studyNote.slice(0, 300)}\n`;
-  }
-  prompt += `\nMy thoughts: "${context.userAnswer}"\n\n`;
-  prompt += `Adopt a Scripture-first approach in every response without explicitly stating that you are doing so. Explain biblical passages in their immediate and canonical context, connecting them with the broader narrative of Scripture while keeping Christ central. Expand on ideas with cross-references, historical background, and relevant Hebrew or Greek insights where they illuminate the text. Gently correct misunderstandings using clear biblical evidence rather than opinion. Present major theological viewpoints fairly, but conclude with the interpretation that best harmonizes with the full witness of Scripture, emphasizing God's love, justice, redemption, faith, and obedience. Provide practical application for daily Christian living in a clear, conversational, and theologically rigorous style. Limit every response to 100 words maximum and end with: (1) Key Takeaway and (2) Three progressively deeper research questions.`;
-  return prompt;
+export function modeLabel(m: AIMode): string {
+  if (m === "deep") return "Deep";
+  if (m === "explanatory") return "Explanatory";
+  return "Normal";
 }
 
 /* ── Message type ──────────────────────────────────────────────────── */
@@ -77,13 +75,7 @@ export interface ChatMessage {
   content: string;
 }
 
-/* ── Unified prompt system ──────────────────────────────────────────────────
- * One grounded SYSTEM_PROMPT is sent as a real `system` role on EVERY call,
- * from every AI surface (global chat, study questions, scripture popup).
- * Depth is controlled by mode (Normal = concise, Deep = structured), and the
- * task framing shapes the user message. This replaces the three divergent
- * prompt strategies that previously lived in separate components.
- * ------------------------------------------------------------------------- */
+/* ── Unified prompt system ────────────────────────────────────────── */
 
 export const SYSTEM_PROMPT = `You are the Bible Study Companion — a warm, Christ-centred guide for the "Joy in the Journey" Seventh-day Adventist Bible study series, serving learners across Southern Africa and beyond.
 
@@ -108,19 +100,27 @@ CARE & BOUNDARIES
 
 FORMAT — Short paragraphs and light Markdown (bold key terms, lists where helpful). Cite verses as "Book 1:1".`;
 
+export const EXPLANATORY_SYSTEM_PROMPT = `System Role: Act as an expert biblical scholar, ancient historian, and master storyteller. Your task is to write a YouTube video script that explains difficult, overlooked, or seemingly contradictory biblical passages.
+
+Tone & Voice: The tone must be calm, profoundly intellectual yet highly accessible, empathetic, and pastoral. Avoid all common Christian clichés, religious jargon, or overly emotional preaching. Speak with the quiet authority of a historian who has discovered a life-changing secret in the text. Ground all theology in physical, tactile realities (bread, ashes, wood, dirt, water).
+
+Script Structure:
+1. The Cinematic Hook: Start in media res with a highly sensory, cinematic description of the geographical or historical setting (e.g., the smell of woodsmoke in ancient Jerusalem). Introduce the specific tension, difficult verse, or "impossible command" without immediately giving away the answer. Never use generic YouTube intros like "Welcome back to the channel."
+2. The Linguistic & Cultural Deep Dive: Identify 1 to 3 specific Hebrew or Greek words at the core of the passage. Explain their historical usage and cultural context to the original ancient Near Eastern or first-century Jewish audience. Crucial rule: Favour actual textual usage over speculative etymology (dead roots). Reframe the tension using this new understanding.
+3. The Mid-Roll Integration: Insert a very brief, natural transition around the halfway mark. Use this exact phrasing style: "Quick word before we continue. If this kind of study is useful to you, subscribing genuinely helps... becoming a channel member directly supports the research."
+4. The Old/New Testament Bridge: Connect the concept to the broader biblical narrative. If the text is Old Testament, show how the New Testament resolves it. If it's New Testament, root it deeply in Old Testament history and geography.
+5. The Pastoral Application: Pivot directly to the modern viewer's life. Address an unspoken burden, exhaustion, or pain (e.g., feeling like a failure in prayer, sitting by a sick child's bed). Use the theological insight to offer genuine relief and grace, not a new set of rules.
+6. The Cinematic Conclusion: Circle back to the opening imagery. Deliver a final, profound, paradigm-shifting thought that leaves the listener in awe of the text. End with a brief, gentle sign-off.`;
+
 export const MODE_DIRECTIVE: Record<AIMode, string> = {
   normal:
     'DEPTH: Concise. A focused, encouraging answer the learner can absorb in under a minute (~120–180 words). End with one bold **Key Takeaway** sentence.',
   deep:
     'DEPTH: Thorough. Use the following headings, skipping any that do not genuinely apply: **Plain Meaning**, **Deeper Meaning** (says / teaches / don\'t-infer), **Original Language** (only if a word matters), **Biblical Context**, **Spirit of Prophecy** (only if relevant, with source), **Cross-References**, **Adventist Understanding**, **Application**, **Key Takeaway** (one sentence), **Go Deeper** (three progressively deeper questions).',
+  explanatory:
+    'DEPTH: Long-form YouTube scripture script. Follow EXPLANATORY_SYSTEM_PROMPT structure end-to-end; write a complete cinematic script.',
 };
 
-/* ── Language steering ──────────────────────────────────────────────
- * The AI answers in the language of the Bible translation the learner is
- * currently using: Afrikaans (afr) → Afrikaans, isiXhosa (xho) → isiXhosa.
- * Any other translation (KJV / WEB) or none → English (the SYSTEM_PROMPT
- * default, so no directive is added).
- * ------------------------------------------------------------------- */
 export const LANGUAGE_DIRECTIVE: Record<string, string> = {
   afr: "LANGUAGE: Respond ENTIRELY in Afrikaans — every sentence, every heading, every label, and the Key Takeaway. Write natural, modern Afrikaans. Bible book names and verse quotations may stay in their Afrikaans form. Do not reply in English unless the learner explicitly asks you to.",
   xho: "LANGUAGE: Respond ENTIRELY in isiXhosa — every sentence, every heading, every label, and the Key Takeaway. Write natural, modern isiXhosa. Do not reply in English unless the learner explicitly asks you to.",
@@ -173,14 +173,33 @@ export function buildMessages(args: BuildMessagesArgs): ChatMessage[] {
 
   const langLine = languageDirectiveFor(translation);
 
+  let systemContent: string;
+  if (mode === "explanatory") {
+    // Explanatory uses its own YouTube-script framework — do not prepend SDA SYSTEM_PROMPT.
+    systemContent = EXPLANATORY_SYSTEM_PROMPT + (langLine ? `\n\n${langLine}` : "");
+  } else {
+    systemContent = `${SYSTEM_PROMPT}\n\n${MODE_DIRECTIVE[mode]}${contextLine}${langLine ? `\n\n${langLine}` : ""}`;
+  }
+
   const system: ChatMessage = {
     role: "system",
-    content: `${SYSTEM_PROMPT}\n\n${MODE_DIRECTIVE[mode]}${contextLine}${langLine ? `\n\n${langLine}` : ""}`,
+    content: systemContent,
   };
 
   let userContent = userText;
 
-  if (task === "scripture") {
+  if (mode === "explanatory") {
+    let topic = userText;
+    if (task === "scripture") {
+      const ref = vars.reference ?? "";
+      const verse = vars.verseText ?? "";
+      topic = verse ? `${ref}: "${verse}"` : ref || userText;
+    } else if (task === "question") {
+      const parts = [vars.scriptureRef, vars.questionText].filter(Boolean);
+      topic = parts.length ? parts.join(" — ") : userText;
+    }
+    userContent = `Write a script using this framework for the following biblical topic: "${topic}"`;
+  } else if (task === "scripture") {
     userContent = `I'm studying ${vars.reference ?? ""}: "${vars.verseText ?? ""}". Help me understand this passage.`;
   } else if (task === "question") {
     const lines = [
@@ -198,33 +217,52 @@ export function buildMessages(args: BuildMessagesArgs): ChatMessage[] {
   return [system, ...history, { role: "user", content: userContent }];
 }
 
-/* ── Non-streaming chat ────────────────────────────────────────────── */
+/* ── Errors ────────────────────────────────────────────────────────── */
 
-/** Turn an upstream HTTP failure into a short, human message (no raw JSON). */
 function friendlyAIError(status: number, body: string): string {
   const lower = body.toLowerCase();
-  if (status === 429 || lower.includes("quota") || lower.includes("rate limit"))
-    return "The study assistant is busy right now (usage limit reached). Please wait a minute and try again.";
+  if (status === 0)
+    return "Couldn't reach DeepSeek. Check your connection and try again.";
   if (status === 401 || status === 403)
-    return "The study assistant isn't configured correctly. Please try again later.";
+    return "DeepSeek rejected the API key. Open More → AI Assistant, clear the key, and paste a valid one from platform.deepseek.com/api_keys.";
+  if (status === 429 || lower.includes("quota") || lower.includes("rate limit"))
+    return "DeepSeek rate limit reached. Please wait a minute and try again.";
+  if (status === 402 || lower.includes("insufficient") || lower.includes("balance"))
+    return "DeepSeek account has insufficient balance. Top up at platform.deepseek.com.";
   if (status === 404)
-    return "The study assistant couldn't be reached. Please try again later.";
+    return "DeepSeek endpoint not found. Please try again later.";
   if (status >= 500)
-    return "The study assistant is temporarily unavailable. Please try again in a moment.";
+    return "DeepSeek is temporarily unavailable. Please try again in a moment.";
   return "Couldn't reach the study assistant. Please check your connection and try again.";
 }
+
+function requireKey(): string {
+  const key = getDeepSeekKey();
+  if (!key) {
+    throw new Error(
+      "Add your DeepSeek API key in More → AI Assistant (or set VITE_DEEPSEEK_API_KEY at build time).",
+    );
+  }
+  return key;
+}
+
+/* ── Non-streaming chat ────────────────────────────────────────────── */
 
 export async function chatWithAI(
   mode: AIMode,
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
+  const key = requireKey();
+  const model = modelFor(mode, false);
 
-  const res = await fetch(`${PROXY_URL}/${endpointFor(mode)}`, {
+  const res = await fetch(DEEPSEEK_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, max_tokens: 1200, stream: false }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({ model, messages, max_tokens: mode === "explanatory" ? 8192 : 1200, stream: false }),
     signal,
   });
 
@@ -244,12 +282,17 @@ export async function streamWithAI(
   onChunk: (text: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
+  const key = requireKey();
+  // Always stream with deepseek-chat (see modelFor comment).
+  const model = modelFor(mode, true);
 
-  const res = await fetch(`${PROXY_URL}/${endpointFor(mode)}`, {
+  const res = await fetch(DEEPSEEK_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, max_tokens: 4096, stream: true }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({ model, messages, max_tokens: mode === "explanatory" ? 8192 : 4096, stream: true }),
     signal,
   });
 

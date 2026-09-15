@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Sun,
   Moon,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { BibleLanguageManager } from "@/components/ui/BibleLanguageManager";
+import { AIKeySetup } from "@/components/ui/AIKeySetup";
 import { StudyPlanSetup } from "@/components/ui/StudyPlanSetup";
 import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
 import { useTheme } from "@/components/ui/ThemeProvider";
@@ -81,18 +82,6 @@ export function MorePage() {
   const readingStyle = useReadingStyle();
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
   const [showPlanSetup, setShowPlanSetup] = useState(false);
-
-  // Show the Bible Languages downloader only while a translation is still missing.
-  const [bibleLangsPending, setBibleLangsPending] = useState(false);
-  useEffect(() => {
-    (async () => {
-      try {
-        const { TRANSLATIONS, isTranslationInstalled } = await import("@/lib/bibleDB");
-        const installed = await Promise.all(TRANSLATIONS.map((t) => isTranslationInstalled(t.id)));
-        setBibleLangsPending(installed.some((ok) => !ok));
-      } catch { setBibleLangsPending(true); }
-    })();
-  }, []);
 
   const totalAnswered = useAppStore((s) => s.totalAnswered());
   const totalHL = useAppStore((s) => s.totalHighlights());
@@ -170,18 +159,24 @@ export function MorePage() {
             <p className="text-sm font-semibold text-primary">{soundOn ? "Sounds On" : "Sounds Off"}</p>
             <p className="text-[12px] text-muted">Tap feedback, chimes &amp; haptics</p>
           </div>
-          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", soundOn ? "bg-gold-500" : "bg-surface")}>
+          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", soundOn ? "bg-gold-500" : "bg-[rgb(var(--color-text-muted))]/25")}>
             <div className={cn("h-5 w-5 rounded-full bg-white shadow transition-transform", soundOn && "translate-x-5")} />
           </div>
         </button>
       </Section>
 
-      {/* ── Bible Languages (only while something is still downloadable) ── */}
-      {bibleLangsPending && (
-        <Section icon={BookOpen} title="Bible Languages">
-          <BibleLanguageManager />
-        </Section>
-      )}
+      {/* ── AI Assistant (DeepSeek key) ── */}
+      <Section icon={Sparkles} title="AI Assistant">
+        <p className="text-[12px] text-muted mb-2">
+          Ask AI uses DeepSeek. Add your API key below — it stays on this device only.
+        </p>
+        <AIKeySetup inline onComplete={() => showToast("DeepSeek key saved", { type: "success" })} />
+      </Section>
+
+      {/* ── Bible Languages (always visible so users can uninstall/reinstall) ── */}
+      <Section icon={BookOpen} title="Bible Languages">
+        <BibleLanguageManager />
+      </Section>
 
       {/* ── Study Plan ────────────────────────────────────── */}
       <Section icon={Calendar} title="Study Plan">
@@ -298,7 +293,7 @@ export function MorePage() {
               {studyPlan.reminderEnabled ? "Reminder On" : "Reminder Off"}
             </p>
           </div>
-          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", studyPlan.reminderEnabled ? "bg-gold-500" : "bg-surface")}>
+          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", studyPlan.reminderEnabled ? "bg-gold-500" : "bg-[rgb(var(--color-text-muted))]/25")}>
             <div className={cn("h-5 w-5 rounded-full bg-white shadow transition-transform", studyPlan.reminderEnabled && "translate-x-5")} />
           </div>
         </button>

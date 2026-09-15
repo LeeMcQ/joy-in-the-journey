@@ -67,17 +67,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     meta?.setAttribute("content", META_COLORS[mode]);
   }, [mode]);
 
-  /* Apply global font size + font family as CSS variables on :root */
+  /* Reading font size/family as CSS vars — scoped to .reading-content, not rem root */
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--app-font-size", `${fontSize}px`);
-	
-	// ← ADD THIS LINE FOR BETTER MOBILE SCALING
-    document.documentElement.style.fontSize = `${Math.round((fontSize / 16) * 10000) / 100}%`;
-	
     root.style.setProperty("--app-line-height", fontSize <= 14 ? "1.6" : fontSize <= 18 ? "1.7" : "1.8");
     root.style.setProperty("--app-font-family", FONT_STACKS[fontFamily]);
-	
+    // Do NOT set documentElement.style.fontSize — that scales rem and breaks nav chrome.
+    root.style.removeProperty("font-size");
   }, [fontSize, fontFamily]);
 
   /* Build semantic token object */

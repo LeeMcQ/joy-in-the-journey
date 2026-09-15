@@ -8,6 +8,8 @@ import {
   buildMessages,
   getStoredMode,
   storeMode,
+  modeLabel,
+  AI_MODES,
   type AIMode,
 } from "@/lib/aiProvider";
 
@@ -96,21 +98,23 @@ export function AskAIButton({
   return (
     <div className="mt-2 space-y-2">
       {!response && !loading && (
-        <div className="flex items-center gap-2">
-          {/* Normal / Deep toggle */}
-          <div className="flex items-center rounded-lg bg-gold-500/8 p-0.5">
-            {(["normal", "deep"] as AIMode[]).map((m) => (
+        <div className="flex flex-col gap-2">
+          {/* Full-width Normal / Deep / Explanatory segmented control */}
+          <div className="flex w-full items-stretch rounded-xl bg-gold-500/8 p-1" role="tablist" aria-label="AI mode">
+            {AI_MODES.map((m) => (
               <button
                 key={m}
+                role="tab"
+                aria-selected={mode === m}
                 onClick={() => handleModeChange(m)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-all",
+                  "min-h-11 flex-1 rounded-lg px-2 text-[12px] font-bold uppercase tracking-wide transition-all",
                   mode === m
-                    ? "bg-gold-500 text-navy-900"
-                    : "text-gold-500/50 hover:text-gold-500/80",
+                    ? "bg-gold-500 text-navy-900 shadow-sm"
+                    : "text-gold-500/60 hover:text-gold-500/90",
                 )}
               >
-                {m === "normal" ? "Normal" : "Deep"}
+                {modeLabel(m)}
               </button>
             ))}
           </div>
@@ -118,8 +122,8 @@ export function AskAIButton({
           <button
             onClick={() => handleAsk()}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-2",
-              "text-[12px] font-semibold transition-all active:scale-[0.97]",
+              "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-3",
+              "text-[13px] font-semibold transition-all active:scale-[0.97]",
               "bg-gold-500/10 text-gold-500 hover:bg-gold-500/15",
             )}
           >
@@ -132,9 +136,13 @@ export function AskAIButton({
         <div className="flex items-center gap-2 rounded-lg bg-gold-500/5 px-3 py-2">
           <Loader2 size={14} className="animate-spin text-gold-500" />
           <span className="text-muted text-[12px]">
-            {mode === "deep" ? "Deep study…" : "Thinking…"}
+            {mode === "explanatory"
+              ? "Writing script…"
+              : mode === "deep"
+                ? "Deep study…"
+                : "Thinking…"}
           </span>
-          <button onClick={handleCancel} className="ml-auto rounded p-1 active:opacity-70">
+          <button onClick={handleCancel} className="ml-auto rounded p-1 active:opacity-70" aria-label="Cancel">
             <X size={12} className="text-muted" />
           </button>
         </div>
@@ -168,7 +176,7 @@ export function AskAIButton({
                   <Square size={12} className="text-muted" />
                 </button>
               )}
-              <button onClick={() => setResponse(null)} className="rounded p-1 active:opacity-70">
+              <button onClick={() => setResponse(null)} className="rounded p-1 active:opacity-70" aria-label="Close">
                 <X size={12} className="text-muted" />
               </button>
             </div>

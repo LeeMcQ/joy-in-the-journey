@@ -220,8 +220,7 @@ export function BiblePage() {
         {/* ── Top bar ─────────────────────────────────────── */}
         <div className={cn(
           "sticky top-0 z-30 border-b border-theme px-5 pb-3 pt-safe",
-          "backdrop-blur-2xl",
-          isDark ? "bg-navy-900/90" : "bg-white/90",
+          "backdrop-blur-2xl bg-[rgb(var(--color-bg))]/90",
         )}
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 2rem)" }}
         >
@@ -577,7 +576,7 @@ export function BiblePage() {
                         highlightVerse === v.verse && "bg-gold-500/10 ring-1 ring-gold-500/20",
                       )}
                     >
-                      <p className="font-scripture text-[15px] leading-[1.95] text-secondary md:text-[16.5px] md:leading-[2.05]">
+                      <p className="reading-content font-scripture text-secondary" style={{ lineHeight: "var(--app-line-height)" }}>
                         <sup className={cn(
                           "mr-1.5 text-[10px] font-bold",
                           highlightVerse === v.verse ? "text-gold-500" : "text-gold-500/50",

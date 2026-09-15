@@ -18,18 +18,18 @@ export default defineConfig({
         "apple-touch-icon.png",
         "icons/icon-192.png",
         "icons/icon-512.png",
-        "bibles/*.json",
+        // Small bible assets only — do NOT precache multi-MB *.json into the SW install.
       ],
       manifest: {
-        name: "SDA Bible Study Companion",
-        short_name: "SDA Bible",
+        name: "Joy in the Journey",
+        short_name: "Joy Journey",
         description: "28 interactive Adventist Bible studies grounded in SDA theology",
         theme_color: "#0F172A",
         background_color: "#0F172A",
         display: "standalone",
         orientation: "any",
         scope: GITHUB_REPO_BASE,
-        start_url: GITHUB_REPO_BASE,
+        start_url: `${GITHUB_REPO_BASE}bible`,
         categories: ["education", "books"],
         icons: [
           { src: `${GITHUB_REPO_BASE}icons/icon-192.png`, sizes: "192x192", type: "image/png" },
@@ -38,13 +38,13 @@ export default defineConfig({
         ],
         shortcuts: [
           {
-            name: "Continue Studying",
-            url: `${GITHUB_REPO_BASE}studies`,
+            name: "Bible Reader",
+            url: `${GITHUB_REPO_BASE}bible`,
             icons: [{ src: `${GITHUB_REPO_BASE}icons/icon-192.png`, sizes: "192x192" }],
           },
           {
-            name: "Bible Reader",
-            url: `${GITHUB_REPO_BASE}bible`,
+            name: "Continue Studying",
+            url: `${GITHUB_REPO_BASE}studies`,
             icons: [{ src: `${GITHUB_REPO_BASE}icons/icon-192.png`, sizes: "192x192" }],
           },
         ],
@@ -82,7 +82,9 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /^https:\/\/leemcq\.github\.io\/joy-in-the-journey\/bibles\/.*\.json$/,
+            // Match bible JSON on any origin (local preview, GitHub Pages, custom domain).
+            urlPattern: ({ url }) =>
+              url.pathname.includes("/bibles/") && url.pathname.endsWith(".json"),
             handler: "CacheFirst",
             options: {
               cacheName: "bible-full-data",

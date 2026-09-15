@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Sparkles, Send, Loader2, ChevronDown, Square } from "lucide-react";
-import { useTheme } from "@/components/ui/ThemeProvider";
 import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -11,10 +10,14 @@ import {
   buildMessages,
   getStoredMode,
   storeMode,
+  hasDeepSeekKey,
+  modeLabel,
+  AI_MODES,
   type ChatMessage,
   type AIMode,
   type AIContext,
 } from "@/lib/aiProvider";
+import { AIKeySetup } from "@/components/ui/AIKeySetup";
 
 interface Props {
   open: boolean;
@@ -41,12 +44,12 @@ function loadHistory(): ChatMessage[] {
 }
 
 export function GlobalAIChat({ open, onClose, context }: Props) {
-  const { isDark } = useTheme();
   const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<AIMode>(getStoredMode);
+  const [hasKey, setHasKey] = useState(() => hasDeepSeekKey());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -70,7 +73,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   }, [messages]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (open) {
+      setHasKey(hasDeepSeekKey());
+      if (hasDeepSeekKey()) inputRef.current?.focus();
+    }
   }, [open]);
 
   const clearChat = () => {
@@ -85,6 +91,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   const send = async (raw: string) => {
     const text = raw.trim();
     if (!text || loading) return;
+    if (!hasDeepSeekKey()) {
+      setHasKey(false);
+      return;
+    }
 
     const userMsg: ChatMessage = { role: "user", content: text };
     const history = messages;
@@ -131,9 +141,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
           const next = [...prev];
           next[next.length - 1] = {
             role: "assistant",
-            content: `Sorry, something went wrong: ${
-              err instanceof Error ? err.message : "Unknown error"
-            }`,
+            content:
+              err instanceof Error
+                ? err.message
+                : "Couldn't reach the study assistant. Please check your connection and try again.",
           };
           return next;
         });
@@ -165,62 +176,89 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
           "relative z-10 mt-auto w-full max-w-lg mx-auto",
           "flex flex-col max-h-[85dvh]",
           "rounded-t-3xl safe-bottom animate-slide-up",
-          isDark ? "bg-navy-700" : "bg-elevated",
+          "bg-elevated",
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-theme">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-gold-500" />
-            <span className="text-sm font-semibold">Ask AI</span>
-            {/* Normal / Deep toggle */}
-            <div className="flex items-center rounded-lg bg-gold-500/8 p-0.5 ml-1">
-              {(["normal", "deep"] as AIMode[]).map((m) => (
+        <div className="border-b border-theme px-5 pt-3 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-gold-500" />
+              <span className="text-sm font-semibold">Ask AI</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {messages.length > 0 && (
                 <button
-                  key={m}
-                  onClick={() => handleModeChange(m)}
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-all",
-                    mode === m
-                      ? "bg-gold-500 text-navy-900"
-                      : "text-gold-500/50 hover:text-gold-500/80",
-                  )}
+                  onClick={clearChat}
+                  className="rounded-lg px-2 py-1 text-2xs font-semibold text-muted active:opacity-70"
                 >
-                  {m === "normal" ? "Normal" : "Deep"}
+                  Clear
                 </button>
-              ))}
+              )}
+              <button onClick={onClose} className="rounded-full p-2 active:opacity-70" aria-label="Close">
+                <ChevronDown size={18} className="text-muted" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            {messages.length > 0 && (
+          {/* Full-width Normal / Deep / Explanatory segmented control */}
+          <div className="mt-3 flex w-full items-stretch rounded-xl bg-gold-500/8 p-1" role="tablist" aria-label="AI mode">
+            {AI_MODES.map((m) => (
               <button
-                onClick={clearChat}
-                className="rounded-lg px-2 py-1 text-2xs font-semibold text-muted active:opacity-70"
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => handleModeChange(m)}
+                className={cn(
+                  "min-h-11 flex-1 rounded-lg px-2 text-[12px] font-bold uppercase tracking-wide transition-all",
+                  mode === m
+                    ? "bg-gold-500 text-navy-900 shadow-sm"
+                    : "text-gold-500/60 hover:text-gold-500/90",
+                )}
               >
-                Clear
+                {modeLabel(m)}
               </button>
-            )}
-            <button onClick={onClose} className="rounded-full p-2 active:opacity-70">
-              <ChevronDown size={18} className="text-muted" />
-            </button>
+            ))}
           </div>
         </div>
 
         {/* Mode subtitle */}
         <div className="px-5 pt-2 text-2xs text-muted">
-          {mode === "deep"
-            ? "Deep — a full, structured study answer."
-            : "Normal — a quick, focused answer."}
+          {mode === "explanatory"
+            ? "Explanatory — a cinematic YouTube-style scripture script."
+            : mode === "deep"
+              ? "Deep — a full, structured study answer."
+              : "Normal — a quick, focused answer."}
         </div>
 
+        {!hasKey ? (
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <p className="mb-3 text-center text-[13px] text-muted">
+              Add a DeepSeek API key to use Ask AI. Your key stays on this device.
+            </p>
+            <AIKeySetup
+              inline
+              onComplete={() => {
+                setHasKey(true);
+                setTimeout(() => inputRef.current?.focus(), 50);
+              }}
+            />
+          </div>
+        ) : (
+        <>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-hide">
           {messages.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <Sparkles size={28} className="text-gold-500/30" />
-              <p className="text-muted text-sm">Ask any Bible or faith question.</p>
+              <p className="text-muted text-sm">
+                {mode === "explanatory"
+                  ? "Give a scripture or topic — it writes a YouTube script."
+                  : "Ask any Bible or faith question."}
+              </p>
               <p className="text-muted text-xs max-w-[240px]">
-                Grounded in Scripture and Adventist teaching, with verse references.
+                {mode === "explanatory"
+                  ? "Cinematic hook, linguistic deep dive, pastoral application — long-form script."
+                  : "Grounded in Scripture and Adventist teaching, with verse references."}
               </p>
               <div className="mt-2 flex flex-wrap justify-center gap-2">
                 {STARTERS.map((s) => (
@@ -243,7 +281,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
                 "rounded-2xl px-4 py-3 text-[14px] leading-[1.7]",
                 msg.role === "user"
                   ? "ml-8 bg-gold-500/10 text-secondary whitespace-pre-line"
-                  : cn("mr-4", isDark ? "bg-navy-800/70" : "bg-surface"),
+                  : "mr-4 bg-surface",
               )}
             >
               {msg.role === "assistant" ? (
@@ -281,7 +319,13 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={mode === "deep" ? "Ask for a deep study…" : "Ask a Bible question…"}
+              placeholder={
+                mode === "explanatory"
+                  ? "Scripture or topic for a script…"
+                  : mode === "deep"
+                    ? "Ask for a deep study…"
+                    : "Ask a Bible question…"
+              }
               className="input flex-1 !rounded-xl !py-2.5"
               disabled={loading}
             />
@@ -305,6 +349,8 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

@@ -98,6 +98,53 @@ function cacheKey(t: TranslationId, book: string, ch: number): string {
   return `${t}:${book.toLowerCase().replace(/\s+/g, "")}:${ch}`;
 }
 
+
+/**
+ * Bump per-translation when shipped JSON gains/loses books so old
+ * joy-bible-ready-* flags no longer short-circuit re-cache.
+ * afr: v2 = completed 11 missing books (Song..3 John).
+ */
+const TRANSLATION_DATA_VERSION: Record<TranslationId, number> = {
+  afr: 2,
+  kjv: 1,
+  web: 1,
+  xho: 1,
+};
+
+/** localStorage flag set when a full download pass finished successfully. */
+function readyFlagKey(t: TranslationId): string {
+  return `joy-bible-ready-${t}-v${TRANSLATION_DATA_VERSION[t]}`;
+}
+
+function markTranslationReady(t: TranslationId): void {
+  try { localStorage.setItem(readyFlagKey(t), "1"); } catch { /* ignore */ }
+}
+
+function clearTranslationReady(t: TranslationId): void {
+  try { localStorage.removeItem(readyFlagKey(t)); } catch { /* ignore */ }
+}
+
+function isTranslationReady(t: TranslationId): boolean {
+  try { return localStorage.getItem(readyFlagKey(t)) === "1"; } catch { return false; }
+}
+
+/** Normalise book names for matching (spaces/punctuation + common aliases). */
+function normBook(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[.]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^song of songs$/, "song of solomon")
+    .replace(/^canticles$/, "song of solomon")
+    .replace(/^psalm$/, "psalms")
+    .replace(/^apocalypse$/, "revelation");
+}
+
+function booksMatch(a: string, b: string): boolean {
+  return normBook(a) === normBook(b);
+}
+
 async function getFromCache(key: string): Promise<LocalVerse[] | null> {
   try {
     const db = await openDB();
@@ -189,7 +236,7 @@ async function fetchChapterFromLocalJson(
   const filtered = all.filter(
     (v) =>
       v.chapter === chapter &&
-      v.book.toLowerCase() === bookName.toLowerCase(),
+      booksMatch(v.book, bookName),
   );
 
   return filtered.length > 0 ? filtered : null;
@@ -198,7 +245,7 @@ async function fetchChapterFromLocalJson(
 /* ── Auto-install: silently cache AFR on first load ─────
    Runs in the background after the app loads.
    Checks if AFR is already cached; if not, downloads and
-   stores all 27,751 verses into IndexedDB silently.
+   stores all verses into IndexedDB silently.
 */
 
 let autoInstallPromise: Promise<void> | null = null;
@@ -222,7 +269,7 @@ export async function autoInstallDefaultBible(): Promise<void> {
         const chapterVerses = allVerses.filter(
           (v) =>
             v.chapter === ch &&
-            v.book.toLowerCase() === book.name.toLowerCase(),
+            booksMatch(v.book, book.name),
         );
         if (chapterVerses.length > 0) {
           await setInCache(key, chapterVerses);
@@ -418,6 +465,7 @@ export async function downloadTranslation(
       },
       signal,
     );
+    markTranslationReady(translation);
     return;
   }
 
@@ -443,7 +491,7 @@ export async function downloadTranslation(
           const chapterVerses = allVerses.filter(
             (v) =>
               v.chapter === ch &&
-              v.book.toLowerCase() === book.name.toLowerCase(),
+              booksMatch(v.book, book.name),
           );
           if (chapterVerses.length > 0) {
             await setInCache(key, chapterVerses);
@@ -458,6 +506,7 @@ export async function downloadTranslation(
       }
     }
 
+    markTranslationReady(translation);
     onProgress({ total: TOTAL_CHAPTERS, done: TOTAL_CHAPTERS, currentBook: "", status: "done" });
     return;
   }
@@ -494,6 +543,7 @@ export async function downloadTranslation(
     }
   }
 
+  markTranslationReady(translation);
   onProgress({ total: TOTAL_CHAPTERS, done, currentBook: "", status: "done" });
 }
 
@@ -504,9 +554,13 @@ export async function getCachedChapterCount(translation: TranslationId): Promise
   if (translation === "xho") {
     try {
       const { isTranslationInstalled } = await import("@/lib/bibleDB");
-      return (await isTranslationInstalled("XHO75")) ? TOTAL_CHAPTERS : 0;
+      const ok = await isTranslationInstalled("XHO75");
+      if (ok) markTranslationReady("xho");
+      return ok ? TOTAL_CHAPTERS : 0;
     } catch { return 0; }
   }
+  // A completed download pass (even if the source JSON omits a few books) counts as installed.
+  if (isTranslationReady(translation)) return TOTAL_CHAPTERS;
   try {
     const db = await openDB();
     return new Promise((resolve) => {
@@ -515,11 +569,46 @@ export async function getCachedChapterCount(translation: TranslationId): Promise
       req.onsuccess = () => {
         const keys = req.result as string[];
         const count = keys.filter((k) => k.startsWith(`${translation}:`)).length;
+        // Treat ~90%+ as complete so sparse source files (e.g. AFR) don't look stuck.
+        if (count >= Math.floor(TOTAL_CHAPTERS * 0.9)) {
+          markTranslationReady(translation);
+          resolve(TOTAL_CHAPTERS);
+          return;
+        }
         resolve(Math.min(count, TOTAL_CHAPTERS));
       };
       req.onerror = () => resolve(0);
     });
   } catch { return 0; }
+}
+
+/** Remove cached chapters for a translation (and clear the ready flag). */
+export async function clearTranslationCache(translation: TranslationId): Promise<void> {
+  clearTranslationReady(translation);
+  fullBibleMemoryCache.delete(translation);
+
+  if (translation === "xho") {
+    const { uninstallTranslation } = await import("@/lib/bibleDB");
+    await uninstallTranslation("XHO75");
+    return;
+  }
+
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAllKeys();
+      req.onsuccess = () => {
+        const keys = (req.result as string[]).filter((k) => k.startsWith(`${translation}:`));
+        for (const k of keys) store.delete(k);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    throw new Error(`Failed to clear ${translation} cache: ${(err as Error).message}`);
+  }
 }
 
 export function getBookList(): BibleBook[] { return BIBLE_BOOKS; }
