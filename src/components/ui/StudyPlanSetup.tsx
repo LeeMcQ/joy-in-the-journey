@@ -112,7 +112,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
   if (showAISetup) {
     return (
       <AIKeySetup
-        onComplete={(_providerId) => { setShowAISetup(false); handleFinish(); }}
+        onComplete={() => { setShowAISetup(false); handleFinish(); }}
         onSkip={() => { setShowAISetup(false); handleFinish(); }}
       />
     );
@@ -468,7 +468,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
             </div>
 
             <p className="text-muted text-[12px] leading-relaxed">
-              You'll need a free API key from one of our providers. You can set
+              You'll need a DeepSeek API key (stays on this device). You can set
               this up now or later when you first tap "Ask AI" in a study.
             </p>
 
