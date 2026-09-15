@@ -468,8 +468,8 @@ export function StudyPlanSetup({ onComplete }: Props) {
             </div>
 
             <p className="text-muted text-[12px] leading-relaxed">
-              You'll need a DeepSeek API key (stays on this device). You can set
-              this up now or later when you first tap "Ask AI" in a study.
+              AI runs via a secure server proxy — no API key needed. You can
+              try Ask AI anytime from a study question.
             </p>
 
             <div className="flex gap-3">
@@ -480,7 +480,7 @@ export function StudyPlanSetup({ onComplete }: Props) {
                 onClick={() => setShowAISetup(true)}
                 className="btn-primary flex-1"
               >
-                <Sparkles size={16} /> Set Up AI
+                <Sparkles size={16} /> About AI
               </button>
             </div>
           </div>

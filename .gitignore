@@ -4,3 +4,7 @@ dist
 *.local
 .env
 .env.*
+
+# Cloudflare Worker local secrets
+workers/**/.dev.vars
+workers/**/.wrangler/

@@ -165,12 +165,12 @@ export function MorePage() {
         </button>
       </Section>
 
-      {/* ── AI Assistant (DeepSeek key) ── */}
+      {/* ── AI Assistant (proxy) ── */}
       <Section icon={Sparkles} title="AI Assistant">
         <p className="text-[12px] text-muted mb-2">
-          Ask AI uses DeepSeek. Add your API key below — it stays on this device only.
+          Ask AI runs via a secure server proxy — no API key needed in the browser.
         </p>
-        <AIKeySetup inline onComplete={() => showToast("DeepSeek key saved", { type: "success" })} />
+        <AIKeySetup inline onComplete={() => showToast("AI assistant ready", { type: "success" })} />
       </Section>
 
       {/* ── Bible Languages (always visible so users can uninstall/reinstall) ── */}

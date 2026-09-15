@@ -1,0 +1,6 @@
+name = "sda-bible-ai"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Secret (do NOT commit):
+#   npx wrangler secret put DEEPSEEK_API_KEY

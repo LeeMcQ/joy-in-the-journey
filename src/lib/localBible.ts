@@ -106,8 +106,8 @@ function cacheKey(t: TranslationId, book: string, ch: number): string {
  */
 const TRANSLATION_DATA_VERSION: Record<TranslationId, number> = {
   afr: 2,
-  kjv: 1,
-  web: 1,
+  kjv: 2, // v2 = prefer committed full verses-format JSON (not incomplete chapter-map)
+  web: 2,
   xho: 1,
 };
 
@@ -179,11 +179,75 @@ function getBaseUrl(): string {
 /* ══════════════════════════════════════════════════════
    IN-MEMORY FULL BIBLE CACHE
    ══════════════════════════════════════════════════════
-   JSON shape: { metadata, verses: [{book_name, book, chapter, verse, text}] }
+   JSON shapes supported:
+     - { metadata?, verses: [{book_name|book, chapter, verse, text}] }
+     - chapter-map { "Genesis 1": [{book, chapter, verse, text}, ...] }
    We load once per session and keep in memory for instant lookups.
 */
 
 const fullBibleMemoryCache = new Map<TranslationId, LocalVerse[]>();
+
+function cleanVerseText(text: unknown): string {
+  return String(text ?? "")
+    .replace(/\[([^\]]*)\]/g, "$1")
+    .replace(/¶\s*/g, "")
+    .trim();
+}
+
+/** Resolve book name from verse objects (verses-format or chapter-map rows). */
+function verseBookName(v: any, fallback = ""): string {
+  if (typeof v?.book_name === "string" && v.book_name.trim()) return v.book_name.trim();
+  if (typeof v?.book === "string" && v.book.trim()) return v.book.trim();
+  return fallback;
+}
+
+function mapRawVerses(rawVerses: any[]): LocalVerse[] {
+  return rawVerses
+    .map((v: any) => ({
+      book: verseBookName(v),
+      chapter: Number(v.chapter),
+      verse: Number(v.verse),
+      text: cleanVerseText(v.text),
+    }))
+    .filter((v) => v.book && Number.isFinite(v.chapter) && Number.isFinite(v.verse));
+}
+
+/**
+ * Accept both committed full-bible shape and incomplete chapter-map shape:
+ *   1) { verses: [{ book_name|book, chapter, verse, text }, ...] }
+ *   2) bare array of verse objects
+ *   3) { "Genesis 1": [{ book, chapter, verse, text }, ...], ... }
+ */
+function parseBibleJson(data: any): LocalVerse[] | null {
+  if (Array.isArray(data)) {
+    const verses = mapRawVerses(data);
+    return verses.length ? verses : null;
+  }
+  if (!data || typeof data !== "object") return null;
+
+  if (Array.isArray(data.verses)) {
+    const verses = mapRawVerses(data.verses);
+    return verses.length ? verses : null;
+  }
+
+  // Chapter-map: keys like "Genesis 1" → verse arrays
+  const verses: LocalVerse[] = [];
+  for (const [key, val] of Object.entries(data)) {
+    if (key === "metadata" || !Array.isArray(val)) continue;
+    const fromKey = key.replace(/\s+\d+$/, "").trim();
+    for (const v of val as any[]) {
+      const book = verseBookName(v, fromKey);
+      if (!book) continue;
+      verses.push({
+        book,
+        chapter: Number(v.chapter),
+        verse: Number(v.verse),
+        text: cleanVerseText(v.text),
+      });
+    }
+  }
+  return verses.length ? verses : null;
+}
 
 async function loadFullBibleIntoMemory(
   translation: TranslationId,
@@ -199,22 +263,8 @@ async function loadFullBibleIntoMemory(
     if (!res.ok) return null;
 
     const data: any = await res.json();
-
-    const rawVerses: any[] | null = Array.isArray(data)
-      ? data
-      : (data.verses ?? null);
-
-    if (!rawVerses || rawVerses.length === 0) return null;
-
-    const verses: LocalVerse[] = rawVerses.map((v: any) => ({
-      book: String(v.book_name ?? ""),
-      chapter: Number(v.chapter),
-      verse: Number(v.verse),
-      text: String(v.text ?? "")
-        .replace(/\[([^\]]*)\]/g, "$1")
-        .replace(/¶\s*/g, "")
-        .trim(),
-    }));
+    const verses = parseBibleJson(data);
+    if (!verses) return null;
 
     fullBibleMemoryCache.set(translation, verses);
     return verses;

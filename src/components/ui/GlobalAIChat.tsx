@@ -10,14 +10,13 @@ import {
   buildMessages,
   getStoredMode,
   storeMode,
-  hasDeepSeekKey,
+  isAIReady,
   modeLabel,
   AI_MODES,
   type ChatMessage,
   type AIMode,
   type AIContext,
 } from "@/lib/aiProvider";
-import { AIKeySetup } from "@/components/ui/AIKeySetup";
 
 interface Props {
   open: boolean;
@@ -49,7 +48,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<AIMode>(getStoredMode);
-  const [hasKey, setHasKey] = useState(() => hasDeepSeekKey());
+  const [hasKey] = useState(() => isAIReady());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -73,11 +72,8 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   }, [messages]);
 
   useEffect(() => {
-    if (open) {
-      setHasKey(hasDeepSeekKey());
-      if (hasDeepSeekKey()) inputRef.current?.focus();
-    }
-  }, [open]);
+    if (open && hasKey) inputRef.current?.focus();
+  }, [open, hasKey]);
 
   const clearChat = () => {
     setMessages([]);
@@ -91,10 +87,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   const send = async (raw: string) => {
     const text = raw.trim();
     if (!text || loading) return;
-    if (!hasDeepSeekKey()) {
-      setHasKey(false);
-      return;
-    }
+    if (!isAIReady()) return;
 
     const userMsg: ChatMessage = { role: "user", content: text };
     const history = messages;
@@ -231,17 +224,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
         </div>
 
         {!hasKey ? (
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            <p className="mb-3 text-center text-[13px] text-muted">
-              Add a DeepSeek API key to use Ask AI. Your key stays on this device.
+          <div className="flex-1 overflow-y-auto px-4 py-6 text-center">
+            <p className="text-[13px] text-muted">
+              AI runs via a secure server proxy, but the proxy is not configured.
             </p>
-            <AIKeySetup
-              inline
-              onComplete={() => {
-                setHasKey(true);
-                setTimeout(() => inputRef.current?.focus(), 50);
-              }}
-            />
           </div>
         ) : (
         <>
