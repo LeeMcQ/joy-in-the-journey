@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { BibleLanguageManager } from "@/components/ui/BibleLanguageManager";
+import { AIKeySetup } from "@/components/ui/AIKeySetup";
 import { StudyPlanSetup } from "@/components/ui/StudyPlanSetup";
 import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
 import { useTheme } from "@/components/ui/ThemeProvider";
@@ -87,9 +88,10 @@ export function MorePage() {
   useEffect(() => {
     (async () => {
       try {
-        const { TRANSLATIONS, isTranslationInstalled } = await import("@/lib/bibleDB");
-        const installed = await Promise.all(TRANSLATIONS.map((t) => isTranslationInstalled(t.id)));
-        setBibleLangsPending(installed.some((ok) => !ok));
+        const { LOCAL_TRANSLATIONS, getCachedChapterCount } = await import("@/lib/localBible");
+        const TOTAL = 1189;
+        const counts = await Promise.all(LOCAL_TRANSLATIONS.map((t) => getCachedChapterCount(t.id)));
+        setBibleLangsPending(counts.some((c) => c < Math.floor(TOTAL * 0.9)));
       } catch { setBibleLangsPending(true); }
     })();
   }, []);
@@ -174,6 +176,14 @@ export function MorePage() {
             <div className={cn("h-5 w-5 rounded-full bg-white shadow transition-transform", soundOn && "translate-x-5")} />
           </div>
         </button>
+      </Section>
+
+      {/* ── AI Assistant (DeepSeek key) ── */}
+      <Section icon={Sparkles} title="AI Assistant">
+        <p className="text-[12px] text-muted mb-2">
+          Ask AI uses DeepSeek. Add your API key below — it stays on this device only.
+        </p>
+        <AIKeySetup inline onComplete={() => showToast("DeepSeek key saved", { type: "success" })} />
       </Section>
 
       {/* ── Bible Languages (only while something is still downloadable) ── */}
