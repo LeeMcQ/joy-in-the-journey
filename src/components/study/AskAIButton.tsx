@@ -98,19 +98,20 @@ export function AskAIButton({
   return (
     <div className="mt-2 space-y-2">
       {!response && !loading && (
-        <div className="flex items-center gap-2">
-          {/* Normal / Deep / Explanatory toggle */}
-          <div className="flex items-center rounded-lg bg-gold-500/8 p-0.5">
+        <div className="flex flex-col gap-2">
+          {/* Full-width Normal / Deep / Explanatory segmented control */}
+          <div className="flex w-full items-stretch rounded-xl bg-gold-500/8 p-1" role="tablist" aria-label="AI mode">
             {AI_MODES.map((m) => (
               <button
                 key={m}
+                role="tab"
+                aria-selected={mode === m}
                 onClick={() => handleModeChange(m)}
                 className={cn(
-                  "rounded-md py-1 text-[10px] font-bold uppercase tracking-wide transition-all",
-                  m === "explanatory" ? "px-1.5" : "px-2.5",
+                  "min-h-11 flex-1 rounded-lg px-2 text-[12px] font-bold uppercase tracking-wide transition-all",
                   mode === m
-                    ? "bg-gold-500 text-navy-900"
-                    : "text-gold-500/50 hover:text-gold-500/80",
+                    ? "bg-gold-500 text-navy-900 shadow-sm"
+                    : "text-gold-500/60 hover:text-gold-500/90",
                 )}
               >
                 {modeLabel(m)}
@@ -121,8 +122,8 @@ export function AskAIButton({
           <button
             onClick={() => handleAsk()}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-2",
-              "text-[12px] font-semibold transition-all active:scale-[0.97]",
+              "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-3",
+              "text-[13px] font-semibold transition-all active:scale-[0.97]",
               "bg-gold-500/10 text-gold-500 hover:bg-gold-500/15",
             )}
           >

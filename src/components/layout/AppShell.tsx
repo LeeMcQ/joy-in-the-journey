@@ -35,14 +35,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setHideNav(/^\/study\/\d+/.test(location.pathname));
   }, [location.pathname]);
 
+  // Home is active on /home only (Bible-first redirect owns `/`)
   const activeTab = tabs.find(
     (t) => !t.isAI && (t.path === "/home"
-      ? location.pathname === "/home" || location.pathname === "/"
+      ? location.pathname === "/home"
       : location.pathname.startsWith(t.path))
   );
 
   return (
-    <div className={cn("flex h-dvh flex-col", isDark ? "bg-[rgb(var(--color-bg))]" : "bg-[rgb(var(--color-bg))]")}>
+    <div className="flex h-dvh flex-col bg-[rgb(var(--color-bg))]">
       <OfflineBanner />
       <InstallBanner />
 
@@ -51,18 +52,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Bottom nav */}
+      {/* Bottom nav — safe-area only here (not also on body) */}
       {!hideNav && (
         <nav
           aria-label="Main navigation"
           className={cn(
             "fixed bottom-0 left-0 right-0 z-30",
             "border-t border-theme",
-            isDark ? "bg-navy-900/95 backdrop-blur-xl" : "bg-white/95 backdrop-blur-xl",
+            "bg-[rgb(var(--color-bg))]/95 backdrop-blur-xl",
             "safe-bottom",
           )}
         >
-          <div className="mx-auto flex w-full max-w-4xl items-stretch">
+          <div className="mx-auto flex w-full max-w-4xl items-stretch px-0.5">
             {tabs.map((tab) => {
               const Icon    = tab.icon;
               const isActive = tab.isAI ? showAIChat : tab.path === activeTab?.path;
@@ -78,19 +79,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     navigate(tab.path);
                   }}
                   className={cn(
-                    "flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 transition-all",
-                    isActive ? "text-gold-500" : isDark ? "text-white/35" : "text-navy-400",
+                    "relative flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 transition-all",
+                    isActive
+                      ? "text-gold-500"
+                      : isDark
+                        ? "text-white/55"
+                        : "text-navy-500/80",
                   )}
                 >
                   <Icon
-                    size={22}
+                    size={20}
                     strokeWidth={isActive ? 2.2 : 1.7}
                     className={cn(
-                      "transition-all",
+                      "shrink-0 transition-all",
                       isActive && tab.isAI && "text-gold-400 drop-shadow-[0_0_6px_rgba(212,160,23,0.5)]",
                     )}
                   />
-                  <span className={cn("text-[10px] font-semibold tracking-wide", isActive ? "opacity-100" : "opacity-60")}>
+                  <span
+                    className={cn(
+                      "max-w-full truncate text-center text-[10px] font-semibold leading-tight tracking-wide",
+                      isActive ? "opacity-100" : "opacity-90",
+                    )}
+                  >
                     {tab.label}
                   </span>
                   {isActive && !tab.isAI && (

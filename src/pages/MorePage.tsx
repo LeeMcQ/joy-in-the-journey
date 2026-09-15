@@ -172,7 +172,7 @@ export function MorePage() {
             <p className="text-sm font-semibold text-primary">{soundOn ? "Sounds On" : "Sounds Off"}</p>
             <p className="text-[12px] text-muted">Tap feedback, chimes &amp; haptics</p>
           </div>
-          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", soundOn ? "bg-gold-500" : "bg-surface")}>
+          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", soundOn ? "bg-gold-500" : "bg-[rgb(var(--color-text-muted))]/25")}>
             <div className={cn("h-5 w-5 rounded-full bg-white shadow transition-transform", soundOn && "translate-x-5")} />
           </div>
         </button>
@@ -308,7 +308,7 @@ export function MorePage() {
               {studyPlan.reminderEnabled ? "Reminder On" : "Reminder Off"}
             </p>
           </div>
-          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", studyPlan.reminderEnabled ? "bg-gold-500" : "bg-surface")}>
+          <div className={cn("h-6 w-11 rounded-full p-0.5 transition-colors", studyPlan.reminderEnabled ? "bg-gold-500" : "bg-[rgb(var(--color-text-muted))]/25")}>
             <div className={cn("h-5 w-5 rounded-full bg-white shadow transition-transform", studyPlan.reminderEnabled && "translate-x-5")} />
           </div>
         </button>

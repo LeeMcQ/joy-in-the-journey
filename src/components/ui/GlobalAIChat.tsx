@@ -181,41 +181,44 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-theme">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-gold-500" />
-            <span className="text-sm font-semibold">Ask AI</span>
-            {/* Normal / Deep / Explanatory toggle */}
-            <div className="flex items-center rounded-lg bg-gold-500/8 p-0.5 ml-1">
-              {AI_MODES.map((m) => (
+        <div className="border-b border-theme px-5 pt-3 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-gold-500" />
+              <span className="text-sm font-semibold">Ask AI</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {messages.length > 0 && (
                 <button
-                  key={m}
-                  onClick={() => handleModeChange(m)}
-                  className={cn(
-                    "rounded-md py-0.5 text-[10px] font-bold uppercase tracking-wide transition-all",
-                    m === "explanatory" ? "px-1.5" : "px-2",
-                    mode === m
-                      ? "bg-gold-500 text-navy-900"
-                      : "text-gold-500/50 hover:text-gold-500/80",
-                  )}
+                  onClick={clearChat}
+                  className="rounded-lg px-2 py-1 text-2xs font-semibold text-muted active:opacity-70"
                 >
-                  {modeLabel(m)}
+                  Clear
                 </button>
-              ))}
+              )}
+              <button onClick={onClose} className="rounded-full p-2 active:opacity-70">
+                <ChevronDown size={18} className="text-muted" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            {messages.length > 0 && (
+          {/* Full-width Normal / Deep / Explanatory segmented control */}
+          <div className="mt-3 flex w-full items-stretch rounded-xl bg-gold-500/8 p-1" role="tablist" aria-label="AI mode">
+            {AI_MODES.map((m) => (
               <button
-                onClick={clearChat}
-                className="rounded-lg px-2 py-1 text-2xs font-semibold text-muted active:opacity-70"
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => handleModeChange(m)}
+                className={cn(
+                  "min-h-11 flex-1 rounded-lg px-2 text-[12px] font-bold uppercase tracking-wide transition-all",
+                  mode === m
+                    ? "bg-gold-500 text-navy-900 shadow-sm"
+                    : "text-gold-500/60 hover:text-gold-500/90",
+                )}
               >
-                Clear
+                {modeLabel(m)}
               </button>
-            )}
-            <button onClick={onClose} className="rounded-full p-2 active:opacity-70">
-              <ChevronDown size={18} className="text-muted" />
-            </button>
+            ))}
           </div>
         </div>
 

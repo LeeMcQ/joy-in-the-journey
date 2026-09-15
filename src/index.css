@@ -83,14 +83,20 @@
 
   body {
     @apply min-h-screen;
+    font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background-color: rgb(var(--color-bg));
+    color: rgb(var(--color-text-primary));
+    /* Safe-area lives on fixed chrome (nav / sticky headers), not body — avoids double padding */
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Reading font size/family scoped to study & bible content only */
+  .reading-content {
     font-family: var(--app-font-family);
     font-size: var(--app-font-size);
     line-height: var(--app-line-height);
-    background-color: rgb(var(--color-bg));
-    color: rgb(var(--color-text-primary));
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    transition: background-color 0.3s ease, color 0.3s ease, font-size 0.2s ease;
   }
 
   /* UI chrome keeps DM Sans at fixed sizes — nav, badges, buttons */

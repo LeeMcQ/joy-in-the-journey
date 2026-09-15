@@ -277,25 +277,35 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
           {/* AI Study panel */}
           {showAi && (
             <div className="bg-navy-700/80 border border-gold-500/20 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={13} className="text-gold-400" />
-                  <span className="text-gold-400 text-xs font-bold tracking-wide uppercase">AI Study</span>
-                  {aiLoading && <Loader2 size={11} className="animate-spin text-gold-400/60 ml-1" />}
-                  <div className="flex items-center rounded-lg bg-white/8 p-0.5 ml-1">
-                    {AI_MODES.map((m) => (
-                      <button key={m} onClick={() => handleModeChange(m)}
-                        className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-all", aiMode === m ? "bg-gold-500 text-navy-900" : "text-white/40 hover:text-white/60")}>
-                        {modeLabel(m)}
-                      </button>
-                    ))}
+              <div className="flex-shrink-0 border-b border-white/8 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={13} className="text-gold-400" />
+                    <span className="text-gold-400 text-xs font-bold tracking-wide uppercase">AI Study</span>
+                    {aiLoading && <Loader2 size={11} className="animate-spin text-gold-400/60 ml-1" />}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {aiLoading && <button onClick={handleStopAI} className="text-white/40 hover:text-white/70 text-xs transition-colors">Stop</button>}
+                    <button onClick={() => setAiCollapsed((c) => !c)} className="text-white/40 hover:text-white/70 transition-colors">
+                      {aiCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {aiLoading && <button onClick={handleStopAI} className="text-white/40 hover:text-white/70 text-xs transition-colors">Stop</button>}
-                  <button onClick={() => setAiCollapsed((c) => !c)} className="text-white/40 hover:text-white/70 transition-colors">
-                    {aiCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                  </button>
+                <div className="mt-2 flex w-full items-stretch rounded-xl bg-white/8 p-1" role="tablist" aria-label="AI mode">
+                  {AI_MODES.map((m) => (
+                    <button
+                      key={m}
+                      role="tab"
+                      aria-selected={aiMode === m}
+                      onClick={() => handleModeChange(m)}
+                      className={cn(
+                        "min-h-11 flex-1 rounded-lg px-2 text-[12px] font-bold uppercase tracking-wide transition-all",
+                        aiMode === m ? "bg-gold-500 text-navy-900 shadow-sm" : "text-white/45 hover:text-white/70",
+                      )}
+                    >
+                      {modeLabel(m)}
+                    </button>
+                  ))}
                 </div>
               </div>
               {!aiCollapsed && (

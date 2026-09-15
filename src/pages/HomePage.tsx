@@ -9,13 +9,48 @@ import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
 import { cn, countQuestions, studyLabel } from "@/lib/utils";
 
 const VERSES = [
-  { ref: "Johannes 3:16", text: "Want so lief het God die wêreld gehad, dat Hy sy eniggebore Seun gegee het, sodat elkeen wat in Hom glo, nie verlore mag gaan nie, maar die ewige lewe kan hê.", eng: "John 3:16" },
-  { ref: "Spreuke 3:5-6", text: "Vertrou op die HERE met jou hele hart en steun nie op jou eie insig nie. Ken Hom in al jou weë, dan sal Hy jou paaie gelykmaak.", eng: "Proverbs 3:5-6" },
-  { ref: "Filippense 4:13", text: "Ek is tot alles in staat deur Christus wat my krag gee.", eng: "Philippians 4:13" },
-  { ref: "Jesaja 41:10", text: "Wees nie bevrees nie, want Ek is met jou; kyk nie angstig rond nie, want Ek is jou God. Ek versterk jou, Ek help jou ook.", eng: "Isaiah 41:10" },
-  { ref: "Romeine 8:28", text: "En ons weet dat vir hulle wat God liefhet, alles ten goede meewerk, vir hulle wat na sy voorneme geroep is.", eng: "Romans 8:28" },
-  { ref: "Psalm 23:1", text: "Die HERE is my herder; niks sal my ontbreek nie.", eng: "Psalm 23:1" },
-  { ref: "Matthéüs 6:33", text: "Maar soek eers die koninkryk van God en sy geregtigheid, en al hierdie dinge sal ook vir julle bygevoeg word.", eng: "Matthew 6:33" },
+  {
+    ref: "Johannes 3:16",
+    eng: "John 3:16",
+    text: "Want so lief het God die wêreld gehad, dat Hy sy eniggebore Seun gegee het, sodat elkeen wat in Hom glo, nie verlore mag gaan nie, maar die ewige lewe kan hê.",
+    textEng: "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.",
+  },
+  {
+    ref: "Spreuke 3:5-6",
+    eng: "Proverbs 3:5-6",
+    text: "Vertrou op die HERE met jou hele hart en steun nie op jou eie insig nie. Ken Hom in al jou weë, dan sal Hy jou paaie gelykmaak.",
+    textEng: "Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.",
+  },
+  {
+    ref: "Filippense 4:13",
+    eng: "Philippians 4:13",
+    text: "Ek is tot alles in staat deur Christus wat my krag gee.",
+    textEng: "I can do all things through Christ which strengtheneth me.",
+  },
+  {
+    ref: "Jesaja 41:10",
+    eng: "Isaiah 41:10",
+    text: "Wees nie bevrees nie, want Ek is met jou; kyk nie angstig rond nie, want Ek is jou God. Ek versterk jou, Ek help jou ook.",
+    textEng: "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee.",
+  },
+  {
+    ref: "Romeine 8:28",
+    eng: "Romans 8:28",
+    text: "En ons weet dat vir hulle wat God liefhet, alles ten goede meewerk, vir hulle wat na sy voorneme geroep is.",
+    textEng: "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.",
+  },
+  {
+    ref: "Psalm 23:1",
+    eng: "Psalm 23:1",
+    text: "Die HERE is my herder; niks sal my ontbreek nie.",
+    textEng: "The LORD is my shepherd; I shall not want.",
+  },
+  {
+    ref: "Matthéüs 6:33",
+    eng: "Matthew 6:33",
+    text: "Maar soek eers die koninkryk van God en sy geregtigheid, en al hierdie dinge sal ook vir julle bygevoeg word.",
+    textEng: "But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.",
+  },
 ];
 
 function getDailyVerse() { return VERSES[Math.floor(Date.now() / 86400000) % VERSES.length]; }
@@ -59,21 +94,41 @@ export function HomePage() {
           </h1>
         </div>
 
-        {/* Daily verse hero */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-700 to-navy-800 p-5 ring-1 ring-gold-500/20">
+        {/* Daily verse hero — theme-friendly surface (works in dark / light / sepia) */}
+        <div className={cn(
+          "relative overflow-hidden rounded-2xl p-5 ring-1 ring-gold-500/20",
+          isDark
+            ? "bg-gradient-to-br from-navy-700 to-navy-800"
+            : "bg-gradient-to-br from-[rgb(var(--color-surface))] to-[rgb(var(--color-bg))] shadow-sm",
+        )}>
           <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-gold-500/[0.08] blur-2xl" />
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60">✦ Vers van die dag</span>
-            <div className="flex rounded-lg bg-white/8 p-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60">
+              ✦ {verseLang === "afr" ? "Vers van die dag" : "Verse of the day"}
+            </span>
+            <div className={cn("flex rounded-lg p-0.5", isDark ? "bg-white/8" : "bg-black/5")}>
               {(["afr", "eng"] as const).map((l) => (
-                <button key={l} onClick={() => setVerseLang(l)} className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold uppercase transition-all", verseLang === l ? "bg-gold-500 text-navy-900" : "text-white/40")}>
+                <button
+                  key={l}
+                  onClick={() => setVerseLang(l)}
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase transition-all",
+                    verseLang === l
+                      ? "bg-gold-500 text-navy-900"
+                      : isDark ? "text-white/40" : "text-muted",
+                  )}
+                >
                   {l.toUpperCase()}
                 </button>
               ))}
             </div>
           </div>
-          <p className="text-[15px] leading-relaxed text-secondary font-scripture italic">"{verse.text}"</p>
-          <p className="mt-2 text-[12px] font-semibold text-gold-500">— {verseLang === "afr" ? verse.ref : verse.eng}</p>
+          <p className="text-[15px] leading-relaxed text-secondary font-scripture italic">
+            "{verseLang === "afr" ? verse.text : verse.textEng}"
+          </p>
+          <p className="mt-2 text-[12px] font-semibold text-gold-500">
+            — {verseLang === "afr" ? verse.ref : verse.eng}
+          </p>
         </div>
 
         {/* Primary CTA */}

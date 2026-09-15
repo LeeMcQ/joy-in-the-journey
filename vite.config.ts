@@ -21,8 +21,8 @@ export default defineConfig({
         // Small bible assets only — do NOT precache multi-MB *.json into the SW install.
       ],
       manifest: {
-        name: "SDA Bible Study Companion",
-        short_name: "SDA Bible",
+        name: "Joy in the Journey",
+        short_name: "Joy Journey",
         description: "28 interactive Adventist Bible studies grounded in SDA theology",
         theme_color: "#0F172A",
         background_color: "#0F172A",
