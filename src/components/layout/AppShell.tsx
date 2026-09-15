@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showAIChat, setShowAIChat] = useState(false);
   const [hideNav, setHideNav]       = useState(false);
 
-  // Hide nav on study reading pages
+  // Hide nav on study reading pages (intentional — immersive reading)
   useEffect(() => {
     setHideNav(/^\/study\/\d+/.test(location.pathname));
   }, [location.pathname]);
@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <InstallBanner />
 
       {/* Main content */}
-      <main className={cn("flex-1 overflow-y-auto scrollbar-hide", !hideNav && "pb-[72px]")}>
+      <main className={cn("flex-1 overflow-y-auto scrollbar-hide", !hideNav && "pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))]")}>
         {children}
       </main>
 

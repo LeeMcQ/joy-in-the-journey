@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Sparkles, Send, Loader2, ChevronDown, Square } from "lucide-react";
-import { useTheme } from "@/components/ui/ThemeProvider";
 import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -45,7 +44,6 @@ function loadHistory(): ChatMessage[] {
 }
 
 export function GlobalAIChat({ open, onClose, context }: Props) {
-  const { isDark } = useTheme();
   const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
@@ -143,9 +141,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
           const next = [...prev];
           next[next.length - 1] = {
             role: "assistant",
-            content: `Sorry, something went wrong: ${
-              err instanceof Error ? err.message : "Unknown error"
-            }`,
+            content:
+              err instanceof Error
+                ? err.message
+                : "Couldn't reach the study assistant. Please check your connection and try again.",
           };
           return next;
         });
@@ -177,7 +176,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
           "relative z-10 mt-auto w-full max-w-lg mx-auto",
           "flex flex-col max-h-[85dvh]",
           "rounded-t-3xl safe-bottom animate-slide-up",
-          isDark ? "bg-navy-700" : "bg-elevated",
+          "bg-elevated",
         )}
       >
         {/* Header */}
@@ -196,7 +195,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
                   Clear
                 </button>
               )}
-              <button onClick={onClose} className="rounded-full p-2 active:opacity-70">
+              <button onClick={onClose} className="rounded-full p-2 active:opacity-70" aria-label="Close">
                 <ChevronDown size={18} className="text-muted" />
               </button>
             </div>
@@ -282,7 +281,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
                 "rounded-2xl px-4 py-3 text-[14px] leading-[1.7]",
                 msg.role === "user"
                   ? "ml-8 bg-gold-500/10 text-secondary whitespace-pre-line"
-                  : cn("mr-4", isDark ? "bg-navy-800/70" : "bg-surface"),
+                  : "mr-4 bg-surface",
               )}
             >
               {msg.role === "assistant" ? (

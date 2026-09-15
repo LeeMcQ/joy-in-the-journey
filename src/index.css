@@ -593,20 +593,12 @@ select:focus-visible {
   stroke-width: 8;
 }
 
-/* Bottom nav active state (also fixes Ask AI size) */
-.bottom-nav .active {
-  transform: scale(1.1);
-}
-
 /* ================================================== */
-/*  MOBILE LAYOUT FIXES (safe-area + scroll padding) */
+/*  MOBILE LAYOUT FIXES (safe-area + scroll padding)  */
+/*  Bottom nav chrome lives in AppShell (safe-bottom). */
 /* ================================================== */
 .page-scroll-pb {
   padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
-}
-
-.bottom-nav {
-  padding-bottom: max(env(safe-area-inset-bottom), 8px) !important;
 }
 
 /* Improve long study pages */

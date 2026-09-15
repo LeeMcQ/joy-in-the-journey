@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Sun,
   Moon,
@@ -82,19 +82,6 @@ export function MorePage() {
   const readingStyle = useReadingStyle();
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
   const [showPlanSetup, setShowPlanSetup] = useState(false);
-
-  // Show the Bible Languages downloader only while a translation is still missing.
-  const [bibleLangsPending, setBibleLangsPending] = useState(false);
-  useEffect(() => {
-    (async () => {
-      try {
-        const { LOCAL_TRANSLATIONS, getCachedChapterCount } = await import("@/lib/localBible");
-        const TOTAL = 1189;
-        const counts = await Promise.all(LOCAL_TRANSLATIONS.map((t) => getCachedChapterCount(t.id)));
-        setBibleLangsPending(counts.some((c) => c < Math.floor(TOTAL * 0.9)));
-      } catch { setBibleLangsPending(true); }
-    })();
-  }, []);
 
   const totalAnswered = useAppStore((s) => s.totalAnswered());
   const totalHL = useAppStore((s) => s.totalHighlights());
@@ -186,12 +173,10 @@ export function MorePage() {
         <AIKeySetup inline onComplete={() => showToast("DeepSeek key saved", { type: "success" })} />
       </Section>
 
-      {/* ── Bible Languages (only while something is still downloadable) ── */}
-      {bibleLangsPending && (
-        <Section icon={BookOpen} title="Bible Languages">
-          <BibleLanguageManager />
-        </Section>
-      )}
+      {/* ── Bible Languages (always visible so users can uninstall/reinstall) ── */}
+      <Section icon={BookOpen} title="Bible Languages">
+        <BibleLanguageManager />
+      </Section>
 
       {/* ── Study Plan ────────────────────────────────────── */}
       <Section icon={Calendar} title="Study Plan">

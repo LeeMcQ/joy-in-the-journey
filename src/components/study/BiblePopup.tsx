@@ -87,7 +87,7 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
       onClick={onClick}
       className={cn(
         "flex-1 min-w-0 px-2 py-1.5 rounded-xl text-sm font-bold text-center transition-all",
-        active ? "bg-gold-500 text-navy-900 shadow-md" : "bg-white/8 text-white/60 hover:bg-white/15 hover:text-white"
+        active ? "bg-gold-500 text-navy-900 shadow-md" : "bg-surface text-muted hover:bg-[rgb(var(--color-border))] hover:text-primary"
       )}
     >
       {label}
@@ -195,23 +195,23 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:max-w-2xl flex flex-col bg-navy-800 rounded-t-2xl shadow-2xl"
+        className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:max-w-2xl flex flex-col bg-elevated rounded-t-2xl shadow-2xl border-t border-theme"
         style={{ maxHeight: "88dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)" }}
         role="dialog" aria-modal="true" aria-label={`Scripture: ${reference}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full bg-white/20" />
+          <div className="w-10 h-1 rounded-full bg-[rgb(var(--color-border-strong))]" />
         </div>
 
         {/* Header */}
         <div className="flex items-start justify-between px-5 pb-3 flex-shrink-0">
           <div className="flex-1 min-w-0">
             <p className="text-gold-500 text-xs font-bold tracking-widest uppercase mb-1">Scripture</p>
-            <h2 className="text-white text-xl font-bold leading-tight pr-4">{reference}</h2>
+            <h2 className="text-primary text-xl font-bold leading-tight pr-4">{reference}</h2>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 mt-1" aria-label="Close">
+          <button onClick={onClose} className="p-2 rounded-full text-muted hover:text-primary hover:bg-surface transition-colors flex-shrink-0 mt-1" aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -227,15 +227,15 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowBGMenu((v) => !v)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-bold bg-white/8 text-white/60 hover:bg-white/15 hover:text-white transition-all"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-bold bg-surface text-muted hover:text-primary transition-all"
               aria-label="More versions"
             >
               <ExternalLink size={13} />
               <ChevronDown size={11} className={cn("transition-transform", showBGMenu && "rotate-180")} />
             </button>
             {showBGMenu && (
-              <div className="absolute top-full right-0 mt-1 z-10 min-w-[150px] rounded-xl bg-navy-700 border border-white/10 shadow-xl overflow-hidden">
-                <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-white/40">Open online</p>
+              <div className="absolute top-full right-0 mt-1 z-10 min-w-[150px] rounded-xl bg-elevated border border-theme shadow-xl overflow-hidden">
+                <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted">Open online</p>
                 {BG_TRANSLATIONS.map((t) => (
                   <a
                     key={t.id}
@@ -243,10 +243,10 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setShowBGMenu(false)}
-                    className="flex items-center justify-between px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                    className="flex items-center justify-between px-3 py-2.5 text-sm text-secondary hover:bg-surface hover:text-primary transition-colors"
                   >
                     <span className="font-semibold">{t.label}</span>
-                    <ExternalLink size={11} className="text-white/30" />
+                    <ExternalLink size={11} className="text-muted" />
                   </a>
                 ))}
               </div>
@@ -256,42 +256,42 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
 
         {/* Verse content */}
         <div className="flex-1 overflow-y-auto px-5 space-y-3 pb-2" style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
-          <div className="bg-navy-700/60 rounded-xl p-4 min-h-[80px]">
+          <div className="bg-surface rounded-xl p-4 min-h-[80px] border border-theme">
             {curLoad ? (
               <div className="flex items-center justify-center py-8"><Loader2 size={24} className="animate-spin text-gold-400" /></div>
             ) : curErr ? (
-              <div className="text-center py-4"><p className="text-white/50 text-sm">{curErr}</p></div>
+              <div className="text-center py-4"><p className="text-muted text-sm">{curErr}</p></div>
             ) : cur ? (
               <div className="space-y-3">
                 {cur.verses.map((v) => (
-                  <p key={v.verse} className="text-white leading-relaxed">
+                  <p key={v.verse} className="text-primary leading-relaxed">
                     <sup className="text-gold-400 font-bold text-xs mr-1.5 select-none">{v.verse}</sup>
                     {v.text}
                   </p>
                 ))}
-                <p className="text-white/25 text-xs text-right mt-1">{cur.translation}</p>
+                <p className="text-muted text-xs text-right mt-1">{cur.translation}</p>
               </div>
             ) : null}
           </div>
 
           {/* AI Study panel */}
           {showAi && (
-            <div className="bg-navy-700/80 border border-gold-500/20 rounded-xl overflow-hidden">
-              <div className="flex-shrink-0 border-b border-white/8 px-4 py-3">
+            <div className="bg-surface border border-gold-500/20 rounded-xl overflow-hidden">
+              <div className="flex-shrink-0 border-b border-theme px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={13} className="text-gold-400" />
-                    <span className="text-gold-400 text-xs font-bold tracking-wide uppercase">AI Study</span>
-                    {aiLoading && <Loader2 size={11} className="animate-spin text-gold-400/60 ml-1" />}
+                    <Sparkles size={13} className="text-gold-accessible" />
+                    <span className="text-gold-accessible text-xs font-bold tracking-wide uppercase">AI Study</span>
+                    {aiLoading && <Loader2 size={11} className="animate-spin text-gold-accessible/60 ml-1" />}
                   </div>
                   <div className="flex items-center gap-3">
-                    {aiLoading && <button onClick={handleStopAI} className="text-white/40 hover:text-white/70 text-xs transition-colors">Stop</button>}
-                    <button onClick={() => setAiCollapsed((c) => !c)} className="text-white/40 hover:text-white/70 transition-colors">
+                    {aiLoading && <button onClick={handleStopAI} className="text-muted hover:text-primary text-xs transition-colors">Stop</button>}
+                    <button onClick={() => setAiCollapsed((c) => !c)} className="text-muted hover:text-primary transition-colors" aria-label={aiCollapsed ? "Expand AI" : "Collapse AI"}>
                       {aiCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                     </button>
                   </div>
                 </div>
-                <div className="mt-2 flex w-full items-stretch rounded-xl bg-white/8 p-1" role="tablist" aria-label="AI mode">
+                <div className="mt-2 flex w-full items-stretch rounded-xl bg-[rgb(var(--color-border))] p-1" role="tablist" aria-label="AI mode">
                   {AI_MODES.map((m) => (
                     <button
                       key={m}
@@ -300,7 +300,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
                       onClick={() => handleModeChange(m)}
                       className={cn(
                         "min-h-11 flex-1 rounded-lg px-2 text-[12px] font-bold uppercase tracking-wide transition-all",
-                        aiMode === m ? "bg-gold-500 text-navy-900 shadow-sm" : "text-white/45 hover:text-white/70",
+                        aiMode === m ? "bg-gold-500 text-navy-900 shadow-sm" : "text-muted hover:text-primary",
                       )}
                     >
                       {modeLabel(m)}
@@ -312,7 +312,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
                 <div ref={aiBodyRef} className="px-4 py-3 space-y-0.5" style={{ maxHeight: "50dvh", overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
                   {aiError ? <p className="text-red-400 text-sm">{aiError}</p>
                     : aiText ? <MarkdownBlock text={aiText} />
-                    : aiLoading ? <p className="text-white/40 text-sm italic animate-pulse">{aiMode === "explanatory" ? "Writing script…" : "Studying the scripture…"}</p>
+                    : aiLoading ? <p className="text-muted text-sm italic animate-pulse">{aiMode === "explanatory" ? "Writing script…" : "Studying the scripture…"}</p>
                     : null}
                 </div>
               )}
@@ -321,14 +321,14 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
         </div>
 
         {/* ── Bottom action bar ── */}
-        <div className="flex items-center gap-2 px-4 pt-3 border-t border-white/8 flex-shrink-0">
+        <div className="flex items-center gap-2 px-4 pt-3 border-t border-theme flex-shrink-0">
           {/* Ask AI — primary, left side */}
           <button
             onClick={handleAskAI}
             disabled={aiLoading}
             className={cn(
               "flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-bold transition-all",
-              showAi ? "bg-gold-500/25 text-gold-300 border border-gold-500/50" : "bg-gold-500/15 text-gold-400 hover:bg-gold-500/25",
+              showAi ? "bg-gold-500/25 text-gold-accessible border border-gold-500/50" : "bg-gold-500/15 text-gold-accessible hover:bg-gold-500/25",
               aiLoading && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -340,7 +340,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
           <button
             onClick={handleShare}
             disabled={!cur}
-            className="flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-semibold bg-white/8 text-white/70 hover:bg-white/15 hover:text-white transition-all disabled:opacity-30"
+            className="flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-semibold bg-surface text-secondary hover:text-primary border border-theme transition-all disabled:opacity-30"
           >
             <Share2 size={14} /><span>Share</span>
           </button>
@@ -349,7 +349,7 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
           <button
             onClick={handleHighlight}
             disabled={!cur}
-            className="flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-semibold bg-white/8 text-white/70 hover:bg-white/15 hover:text-white transition-all disabled:opacity-30"
+            className="flex items-center gap-1.5 flex-1 justify-center py-2.5 rounded-xl text-sm font-semibold bg-surface text-secondary hover:text-primary border border-theme transition-all disabled:opacity-30"
           >
             <Bookmark size={14} /><span>Save</span>
           </button>

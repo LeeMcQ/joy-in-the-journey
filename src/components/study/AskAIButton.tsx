@@ -142,7 +142,7 @@ export function AskAIButton({
                 ? "Deep study…"
                 : "Thinking…"}
           </span>
-          <button onClick={handleCancel} className="ml-auto rounded p-1 active:opacity-70">
+          <button onClick={handleCancel} className="ml-auto rounded p-1 active:opacity-70" aria-label="Cancel">
             <X size={12} className="text-muted" />
           </button>
         </div>
@@ -176,7 +176,7 @@ export function AskAIButton({
                   <Square size={12} className="text-muted" />
                 </button>
               )}
-              <button onClick={() => setResponse(null)} className="rounded p-1 active:opacity-70">
+              <button onClick={() => setResponse(null)} className="rounded p-1 active:opacity-70" aria-label="Close">
                 <X size={12} className="text-muted" />
               </button>
             </div>

@@ -145,7 +145,7 @@ export function BibleLanguageManager() {
         <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2">
           <HardDrive size={13} className="text-muted shrink-0" />
           <div className="flex-1">
-            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-[rgb(var(--color-border-strong))] overflow-hidden">
               <div
                 className="h-full rounded-full bg-gold-500/60 transition-all"
                 style={{ width: `${Math.min((storage.used / storage.quota) * 100, 100)}%` }}
@@ -173,14 +173,14 @@ export function BibleLanguageManager() {
               "rounded-2xl border p-4 transition-all",
               state.installed
                 ? "border-gold-500/20 bg-gold-500/[0.03]"
-                : "border-white/8 bg-surface",
+                : "border-theme bg-surface",
             )}
           >
             <div className="flex items-start gap-3">
               <div
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg",
-                  state.installed ? "bg-gold-500/10" : "bg-white/5",
+                  state.installed ? "bg-gold-500/10" : "bg-surface",
                 )}
               >
                 {FLAG[t.language] ?? "📖"}
@@ -189,7 +189,7 @@ export function BibleLanguageManager() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold">{t.fullName}</p>
-                  <span className="rounded-full bg-white/8 px-2 py-0.5 font-mono text-[10px] text-muted">
+                  <span className="rounded-full bg-surface px-2 py-0.5 font-mono text-[10px] text-muted">
                     {t.id}
                   </span>
                 </div>
@@ -197,7 +197,7 @@ export function BibleLanguageManager() {
 
                 {state.installing && state.progress && (
                   <div className="mt-2">
-                    <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-1.5 w-full rounded-full bg-[rgb(var(--color-border-strong))] overflow-hidden">
                       <div
                         className="h-full rounded-full bg-gold-500 transition-all duration-300"
                         style={{ width: `${pct}%` }}
@@ -232,13 +232,13 @@ export function BibleLanguageManager() {
                     <button
                       onClick={() => handleInstall(t.id)}
                       title="Re-install"
-                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-muted active:opacity-70"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface text-muted active:opacity-70"
                     >
                       <RefreshCw size={13} />
                     </button>
                     <button
                       onClick={() => handleUninstall(t.id)}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-muted active:opacity-70 hover:text-red-400"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface text-muted active:opacity-70 hover:text-red-400"
                     >
                       <Trash2 size={14} />
                     </button>

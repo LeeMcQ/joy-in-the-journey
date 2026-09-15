@@ -33,7 +33,7 @@ export function InstallBanner() {
   if (!visible) return null;
 
   return (
-    <div className={cn("fixed bottom-[76px] left-4 right-4 z-40 animate-slide-up rounded-2xl border border-gold-500/20 bg-navy-700 p-4 shadow-xl")}>
+    <div className={cn("fixed left-4 right-4 z-40 animate-slide-up rounded-2xl border border-theme bg-elevated p-4 shadow-xl bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px)+0.5rem)]")}>
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-500/15">
           <Smartphone size={18} className="text-gold-500" />
