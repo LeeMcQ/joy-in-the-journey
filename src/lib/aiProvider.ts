@@ -1,27 +1,52 @@
 /* ================================================================== */
 /*  AI Provider System                                                 */
-/*  All calls go through the Cloudflare Worker proxy.                 */
-/*  mode "normal"  → /normal  (fast everyday responses)              */
-/*  mode "deep"    → /deep    (thorough research-grade responses)     */
-/*  No API keys are ever stored or sent from the browser.             */
+/*  Browser calls DeepSeek OpenAI-compatible chat completions.        */
+/*  mode "normal"  → deepseek-chat (fast)                             */
+/*  mode "deep"    → deepseek-reasoner (non-stream) / deepseek-chat   */
+/*                   (stream — reasoner SSE can omit delta.content)   */
+/*  API key: localStorage `joy-deepseek-api-key` or                    */
+/*           VITE_DEEPSEEK_API_KEY at build time.                      */
 /* ================================================================== */
 
-const PROXY_URL =
-  (import.meta.env.VITE_AI_PROXY_URL as string | undefined) ||
-  "https://sda-bible-ai.mcquir4l.workers.dev";
-
-/**
- * Which proxy route a mode uses.
- * Depth is driven by the prompt (MODE_DIRECTIVE), not the endpoint, so both
- * modes are served by the "/normal" Groq route — the one already deployed and
- * working on Cloudflare. (To use a separate "/deep" provider later, return
- * `mode` here instead.)
- */
-function endpointFor(_mode: AIMode): string {
-  return "normal";
-}
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_KEY_STORAGE = "joy-deepseek-api-key";
 
 export type AIMode = "normal" | "deep";
+
+/* ── DeepSeek API key ─────────────────────────────────────────────── */
+
+export function getDeepSeekKey(): string | null {
+  try {
+    const stored = localStorage.getItem(DEEPSEEK_KEY_STORAGE)?.trim();
+    if (stored) return stored;
+  } catch { /* private mode / unavailable */ }
+  const envKey = (import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined)?.trim();
+  return envKey || null;
+}
+
+export function storeDeepSeekKey(key: string): void {
+  localStorage.setItem(DEEPSEEK_KEY_STORAGE, key.trim());
+}
+
+export function clearDeepSeekKey(): void {
+  localStorage.removeItem(DEEPSEEK_KEY_STORAGE);
+}
+
+export function hasDeepSeekKey(): boolean {
+  return !!getDeepSeekKey();
+}
+
+/** Alias used by older call sites — now reflects a real DeepSeek key. */
+export function hasAnyKey(): boolean {
+  return hasDeepSeekKey();
+}
+
+function modelFor(mode: AIMode, stream: boolean): string {
+  // Prefer reasoner for deep non-streaming answers. For SSE streaming use
+  // deepseek-chat so chunks arrive as choices[0].delta.content reliably.
+  if (mode === "deep" && !stream) return "deepseek-reasoner";
+  return "deepseek-chat";
+}
 
 /* ── Mode preference ───────────────────────────────────────────────── */
 
@@ -39,9 +64,8 @@ export function storeMode(mode: AIMode): void {
 export type ProviderId = "normal" | "deep";
 export function getStoredProvider(): AIMode { return getStoredMode(); }
 export function storeProvider(id: AIMode): void { storeMode(id); }
-export function hasAnyKey(): boolean { return true; }
-export function getStoredKey(_: string): string | null { return "proxy"; }
-export function storeKey(_a: string, _b: string): void {}
+export function getStoredKey(_: string): string | null { return getDeepSeekKey(); }
+export function storeKey(_a: string, key: string): void { storeDeepSeekKey(key); }
 
 export const PROVIDERS = [
   { id: "normal" as const, name: "Normal", emoji: "⚡", tier: "free" as const, description: "Fast everyday responses" },
@@ -77,13 +101,7 @@ export interface ChatMessage {
   content: string;
 }
 
-/* ── Unified prompt system ──────────────────────────────────────────────────
- * One grounded SYSTEM_PROMPT is sent as a real `system` role on EVERY call,
- * from every AI surface (global chat, study questions, scripture popup).
- * Depth is controlled by mode (Normal = concise, Deep = structured), and the
- * task framing shapes the user message. This replaces the three divergent
- * prompt strategies that previously lived in separate components.
- * ------------------------------------------------------------------------- */
+/* ── Unified prompt system ────────────────────────────────────────── */
 
 export const SYSTEM_PROMPT = `You are the Bible Study Companion — a warm, Christ-centred guide for the "Joy in the Journey" Seventh-day Adventist Bible study series, serving learners across Southern Africa and beyond.
 
@@ -115,12 +133,6 @@ export const MODE_DIRECTIVE: Record<AIMode, string> = {
     'DEPTH: Thorough. Use the following headings, skipping any that do not genuinely apply: **Plain Meaning**, **Deeper Meaning** (says / teaches / don\'t-infer), **Original Language** (only if a word matters), **Biblical Context**, **Spirit of Prophecy** (only if relevant, with source), **Cross-References**, **Adventist Understanding**, **Application**, **Key Takeaway** (one sentence), **Go Deeper** (three progressively deeper questions).',
 };
 
-/* ── Language steering ──────────────────────────────────────────────
- * The AI answers in the language of the Bible translation the learner is
- * currently using: Afrikaans (afr) → Afrikaans, isiXhosa (xho) → isiXhosa.
- * Any other translation (KJV / WEB) or none → English (the SYSTEM_PROMPT
- * default, so no directive is added).
- * ------------------------------------------------------------------- */
 export const LANGUAGE_DIRECTIVE: Record<string, string> = {
   afr: "LANGUAGE: Respond ENTIRELY in Afrikaans — every sentence, every heading, every label, and the Key Takeaway. Write natural, modern Afrikaans. Bible book names and verse quotations may stay in their Afrikaans form. Do not reply in English unless the learner explicitly asks you to.",
   xho: "LANGUAGE: Respond ENTIRELY in isiXhosa — every sentence, every heading, every label, and the Key Takeaway. Write natural, modern isiXhosa. Do not reply in English unless the learner explicitly asks you to.",
@@ -198,33 +210,52 @@ export function buildMessages(args: BuildMessagesArgs): ChatMessage[] {
   return [system, ...history, { role: "user", content: userContent }];
 }
 
-/* ── Non-streaming chat ────────────────────────────────────────────── */
+/* ── Errors ────────────────────────────────────────────────────────── */
 
-/** Turn an upstream HTTP failure into a short, human message (no raw JSON). */
 function friendlyAIError(status: number, body: string): string {
   const lower = body.toLowerCase();
-  if (status === 429 || lower.includes("quota") || lower.includes("rate limit"))
-    return "The study assistant is busy right now (usage limit reached). Please wait a minute and try again.";
+  if (status === 0)
+    return "Couldn't reach DeepSeek. Check your connection and try again.";
   if (status === 401 || status === 403)
-    return "The study assistant isn't configured correctly. Please try again later.";
+    return "DeepSeek rejected the API key. Open More → AI Assistant, clear the key, and paste a valid one from platform.deepseek.com/api_keys.";
+  if (status === 429 || lower.includes("quota") || lower.includes("rate limit"))
+    return "DeepSeek rate limit reached. Please wait a minute and try again.";
+  if (status === 402 || lower.includes("insufficient") || lower.includes("balance"))
+    return "DeepSeek account has insufficient balance. Top up at platform.deepseek.com.";
   if (status === 404)
-    return "The study assistant couldn't be reached. Please try again later.";
+    return "DeepSeek endpoint not found. Please try again later.";
   if (status >= 500)
-    return "The study assistant is temporarily unavailable. Please try again in a moment.";
+    return "DeepSeek is temporarily unavailable. Please try again in a moment.";
   return "Couldn't reach the study assistant. Please check your connection and try again.";
 }
+
+function requireKey(): string {
+  const key = getDeepSeekKey();
+  if (!key) {
+    throw new Error(
+      "Add your DeepSeek API key in More → AI Assistant (or set VITE_DEEPSEEK_API_KEY at build time).",
+    );
+  }
+  return key;
+}
+
+/* ── Non-streaming chat ────────────────────────────────────────────── */
 
 export async function chatWithAI(
   mode: AIMode,
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
+  const key = requireKey();
+  const model = modelFor(mode, false);
 
-  const res = await fetch(`${PROXY_URL}/${endpointFor(mode)}`, {
+  const res = await fetch(DEEPSEEK_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, max_tokens: 1200, stream: false }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({ model, messages, max_tokens: 1200, stream: false }),
     signal,
   });
 
@@ -244,12 +275,17 @@ export async function streamWithAI(
   onChunk: (text: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  if (!PROXY_URL) throw new Error("AI proxy URL not configured. Set VITE_AI_PROXY_URL.");
+  const key = requireKey();
+  // Always stream with deepseek-chat (see modelFor comment).
+  const model = modelFor(mode, true);
 
-  const res = await fetch(`${PROXY_URL}/${endpointFor(mode)}`, {
+  const res = await fetch(DEEPSEEK_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, max_tokens: 4096, stream: true }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({ model, messages, max_tokens: 4096, stream: true }),
     signal,
   });
 
