@@ -99,9 +99,21 @@ function cacheKey(t: TranslationId, book: string, ch: number): string {
 }
 
 
+/**
+ * Bump per-translation when shipped JSON gains/loses books so old
+ * joy-bible-ready-* flags no longer short-circuit re-cache.
+ * afr: v2 = completed 11 missing books (Song..3 John).
+ */
+const TRANSLATION_DATA_VERSION: Record<TranslationId, number> = {
+  afr: 2,
+  kjv: 1,
+  web: 1,
+  xho: 1,
+};
+
 /** localStorage flag set when a full download pass finished successfully. */
 function readyFlagKey(t: TranslationId): string {
-  return `joy-bible-ready-${t}`;
+  return `joy-bible-ready-${t}-v${TRANSLATION_DATA_VERSION[t]}`;
 }
 
 function markTranslationReady(t: TranslationId): void {
@@ -233,7 +245,7 @@ async function fetchChapterFromLocalJson(
 /* ── Auto-install: silently cache AFR on first load ─────
    Runs in the background after the app loads.
    Checks if AFR is already cached; if not, downloads and
-   stores all 27,751 verses into IndexedDB silently.
+   stores all verses into IndexedDB silently.
 */
 
 let autoInstallPromise: Promise<void> | null = null;
