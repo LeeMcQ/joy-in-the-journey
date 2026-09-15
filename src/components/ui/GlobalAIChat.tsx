@@ -12,6 +12,8 @@ import {
   getStoredMode,
   storeMode,
   hasDeepSeekKey,
+  modeLabel,
+  AI_MODES,
   type ChatMessage,
   type AIMode,
   type AIContext,
@@ -183,20 +185,21 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-gold-500" />
             <span className="text-sm font-semibold">Ask AI</span>
-            {/* Normal / Deep toggle */}
+            {/* Normal / Deep / Explanatory toggle */}
             <div className="flex items-center rounded-lg bg-gold-500/8 p-0.5 ml-1">
-              {(["normal", "deep"] as AIMode[]).map((m) => (
+              {AI_MODES.map((m) => (
                 <button
                   key={m}
                   onClick={() => handleModeChange(m)}
                   className={cn(
-                    "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-all",
+                    "rounded-md py-0.5 text-[10px] font-bold uppercase tracking-wide transition-all",
+                    m === "explanatory" ? "px-1.5" : "px-2",
                     mode === m
                       ? "bg-gold-500 text-navy-900"
                       : "text-gold-500/50 hover:text-gold-500/80",
                   )}
                 >
-                  {m === "normal" ? "Normal" : "Deep"}
+                  {modeLabel(m)}
                 </button>
               ))}
             </div>
@@ -218,9 +221,11 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
 
         {/* Mode subtitle */}
         <div className="px-5 pt-2 text-2xs text-muted">
-          {mode === "deep"
-            ? "Deep — a full, structured study answer."
-            : "Normal — a quick, focused answer."}
+          {mode === "explanatory"
+            ? "Explanatory — a cinematic YouTube-style scripture script."
+            : mode === "deep"
+              ? "Deep — a full, structured study answer."
+              : "Normal — a quick, focused answer."}
         </div>
 
         {!hasKey ? (
@@ -243,9 +248,15 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
           {messages.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <Sparkles size={28} className="text-gold-500/30" />
-              <p className="text-muted text-sm">Ask any Bible or faith question.</p>
+              <p className="text-muted text-sm">
+                {mode === "explanatory"
+                  ? "Give a scripture or topic — it writes a YouTube script."
+                  : "Ask any Bible or faith question."}
+              </p>
               <p className="text-muted text-xs max-w-[240px]">
-                Grounded in Scripture and Adventist teaching, with verse references.
+                {mode === "explanatory"
+                  ? "Cinematic hook, linguistic deep dive, pastoral application — long-form script."
+                  : "Grounded in Scripture and Adventist teaching, with verse references."}
               </p>
               <div className="mt-2 flex flex-wrap justify-center gap-2">
                 {STARTERS.map((s) => (
@@ -306,7 +317,13 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={mode === "deep" ? "Ask for a deep study…" : "Ask a Bible question…"}
+              placeholder={
+                mode === "explanatory"
+                  ? "Scripture or topic for a script…"
+                  : mode === "deep"
+                    ? "Ask for a deep study…"
+                    : "Ask a Bible question…"
+              }
               className="input flex-1 !rounded-xl !py-2.5"
               disabled={loading}
             />
