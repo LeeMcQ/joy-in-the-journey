@@ -1,49 +1,56 @@
 /* ================================================================== */
 /*  AI Provider System                                                 */
-/*  Browser calls DeepSeek OpenAI-compatible chat completions.        */
-/*  mode "normal"      → deepseek-chat (fast)                         */
-/*  mode "deep"        → deepseek-reasoner (non-stream) / deepseek-chat*/
-/*                       (stream — reasoner SSE can omit delta.content)*/
-/*  mode "explanatory" → deepseek-chat (long-form YouTube script)     */
-/*  API key: localStorage `joy-deepseek-api-key` or                    */
-/*           VITE_DEEPSEEK_API_KEY at build time.                      */
+/*  Browser calls a secure Cloudflare Worker proxy (no API key in the  */
+/*  client). Modes map to worker routes:                               */
+/*  mode "normal"      → POST /normal  → deepseek-chat                 */
+/*  mode "deep"        → POST /deep    → deepseek-reasoner (non-stream)*/
+/*                       / deepseek-chat (stream)                      */
+/*  mode "explanatory" → POST /explanatory → deepseek-chat (long-form) */
+/*  Proxy URL: VITE_AI_PROXY_URL or default workers.dev endpoint.      */
 /* ================================================================== */
 
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const DEEPSEEK_KEY_STORAGE = "joy-deepseek-api-key";
+const PROXY_URL = (
+  (import.meta.env.VITE_AI_PROXY_URL as string | undefined)?.trim() ||
+  "https://sda-bible-ai.mcquir4l.workers.dev"
+).replace(/\/$/, "");
 
 export type AIMode = "normal" | "deep" | "explanatory";
 
-/* ── DeepSeek API key ─────────────────────────────────────────────── */
+/* ── AI readiness (proxy — no browser API key) ─────────────────────── */
 
-export function getDeepSeekKey(): string | null {
-  try {
-    const stored = localStorage.getItem(DEEPSEEK_KEY_STORAGE)?.trim();
-    if (stored) return stored;
-  } catch { /* private mode / unavailable */ }
-  const envKey = (import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined)?.trim();
-  return envKey || null;
+/** True when the AI proxy URL is configured (always is via default). */
+export function isAIReady(): boolean {
+  return !!PROXY_URL;
 }
 
-export function storeDeepSeekKey(key: string): void {
-  localStorage.setItem(DEEPSEEK_KEY_STORAGE, key.trim());
-}
-
-export function clearDeepSeekKey(): void {
-  localStorage.removeItem(DEEPSEEK_KEY_STORAGE);
-}
-
+/** @deprecated Prefer isAIReady — DeepSeek key never lives in the browser. */
 export function hasDeepSeekKey(): boolean {
-  return !!getDeepSeekKey();
+  return isAIReady();
 }
 
-function modelFor(mode: AIMode, stream: boolean): string {
-  // Explanatory always uses deepseek-chat (long-form script).
-  if (mode === "explanatory") return "deepseek-chat";
-  // Prefer reasoner for deep non-streaming answers. For SSE streaming use
-  // deepseek-chat so chunks arrive as choices[0].delta.content reliably.
-  if (mode === "deep" && !stream) return "deepseek-reasoner";
-  return "deepseek-chat";
+/** @deprecated No-op — keys are not stored in the browser. */
+export function getDeepSeekKey(): string | null {
+  return null;
+}
+
+/** @deprecated No-op — keys are not stored in the browser. */
+export function storeDeepSeekKey(_key: string): void {
+  try {
+    localStorage.removeItem("joy-deepseek-api-key");
+  } catch { /* ignore */ }
+}
+
+/** Clears any legacy key left in localStorage from older builds. */
+export function clearDeepSeekKey(): void {
+  try {
+    localStorage.removeItem("joy-deepseek-api-key");
+  } catch { /* ignore */ }
+}
+
+function proxyPath(mode: AIMode): string {
+  if (mode === "deep") return "/deep";
+  if (mode === "explanatory") return "/explanatory";
+  return "/normal";
 }
 
 /* ── Mode preference ───────────────────────────────────────────────── */
@@ -222,28 +229,29 @@ export function buildMessages(args: BuildMessagesArgs): ChatMessage[] {
 function friendlyAIError(status: number, body: string): string {
   const lower = body.toLowerCase();
   if (status === 0)
-    return "Couldn't reach DeepSeek. Check your connection and try again.";
+    return "Couldn't reach the study assistant. Check your connection and try again.";
   if (status === 401 || status === 403)
-    return "DeepSeek rejected the API key. Open More → AI Assistant, clear the key, and paste a valid one from platform.deepseek.com/api_keys.";
+    return "The AI proxy rejected the request. Please try again later.";
   if (status === 429 || lower.includes("quota") || lower.includes("rate limit"))
-    return "DeepSeek rate limit reached. Please wait a minute and try again.";
+    return "AI rate limit reached. Please wait a minute and try again.";
   if (status === 402 || lower.includes("insufficient") || lower.includes("balance"))
-    return "DeepSeek account has insufficient balance. Top up at platform.deepseek.com.";
+    return "AI service balance is low. Please try again later.";
   if (status === 404)
-    return "DeepSeek endpoint not found. Please try again later.";
+    return "AI proxy endpoint not found. Please try again later.";
+  if (status === 503 || lower.includes("not configured"))
+    return "AI proxy is not configured yet. Please try again later.";
   if (status >= 500)
-    return "DeepSeek is temporarily unavailable. Please try again in a moment.";
+    return "The study assistant is temporarily unavailable. Please try again in a moment.";
   return "Couldn't reach the study assistant. Please check your connection and try again.";
 }
 
-function requireKey(): string {
-  const key = getDeepSeekKey();
-  if (!key) {
-    throw new Error(
-      "Add your DeepSeek API key in More → AI Assistant (or set VITE_DEEPSEEK_API_KEY at build time).",
-    );
+function requireProxy(): string {
+  if (!PROXY_URL) {
+    throw new Error("AI proxy URL is not configured.");
   }
-  return key;
+  // Drop any legacy browser key so it cannot leak on older tabs.
+  clearDeepSeekKey();
+  return PROXY_URL;
 }
 
 /* ── Non-streaming chat ────────────────────────────────────────────── */
@@ -253,16 +261,13 @@ export async function chatWithAI(
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  const key = requireKey();
-  const model = modelFor(mode, false);
+  const base = requireProxy();
+  const max_tokens = mode === "explanatory" ? 8192 : 1200;
 
-  const res = await fetch(DEEPSEEK_URL, {
+  const res = await fetch(`${base}${proxyPath(mode)}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({ model, messages, max_tokens: mode === "explanatory" ? 8192 : 1200, stream: false }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, max_tokens, stream: false }),
     signal,
   });
 
@@ -282,17 +287,13 @@ export async function streamWithAI(
   onChunk: (text: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const key = requireKey();
-  // Always stream with deepseek-chat (see modelFor comment).
-  const model = modelFor(mode, true);
+  const base = requireProxy();
+  const max_tokens = mode === "explanatory" ? 8192 : 4096;
 
-  const res = await fetch(DEEPSEEK_URL, {
+  const res = await fetch(`${base}${proxyPath(mode)}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({ model, messages, max_tokens: mode === "explanatory" ? 8192 : 4096, stream: true }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, max_tokens, stream: true }),
     signal,
   });
 
