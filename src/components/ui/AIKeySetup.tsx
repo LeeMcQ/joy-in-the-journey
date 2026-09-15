@@ -20,7 +20,7 @@ import {
 const KEY_URL = "https://platform.deepseek.com/api_keys";
 
 interface AIKeySetupProps {
-  onComplete?: (providerId?: string) => void;
+  onComplete?: () => void;
   onSkip?: () => void;
   /** When true renders as a full-screen modal (default).
    *  When false renders inline (for the More/Settings page). */
@@ -38,7 +38,7 @@ export function AIKeySetup({ onComplete, onSkip, inline = false }: AIKeySetupPro
     if (!trimmed) return;
     storeDeepSeekKey(trimmed);
     setSaved(true);
-    onComplete?.("deepseek");
+    onComplete?.();
   };
 
   const handleClear = () => {
@@ -216,7 +216,7 @@ export function AIKeySetup({ onComplete, onSkip, inline = false }: AIKeySetupPro
             </button>
           )}
           <button
-            onClick={() => onComplete?.("deepseek")}
+            onClick={() => onComplete?.()}
             disabled={!saved}
             className={cn(
               "btn-primary flex-1",
