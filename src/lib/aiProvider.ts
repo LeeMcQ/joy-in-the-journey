@@ -37,11 +37,6 @@ export function hasDeepSeekKey(): boolean {
   return !!getDeepSeekKey();
 }
 
-/** Alias used by older call sites — now reflects a real DeepSeek key. */
-export function hasAnyKey(): boolean {
-  return hasDeepSeekKey();
-}
-
 function modelFor(mode: AIMode, stream: boolean): string {
   // Explanatory always uses deepseek-chat (long-form script).
   if (mode === "explanatory") return "deepseek-chat";
@@ -65,47 +60,12 @@ export function storeMode(mode: AIMode): void {
   localStorage.setItem(MODE_KEY, mode);
 }
 
-/* ── Legacy stubs (kept so old imports don't break) ────────────────── */
-export type ProviderId = "normal" | "deep" | "explanatory";
-export function getStoredProvider(): AIMode { return getStoredMode(); }
-export function storeProvider(id: AIMode): void { storeMode(id); }
-export function getStoredKey(_: string): string | null { return getDeepSeekKey(); }
-export function storeKey(_a: string, key: string): void { storeDeepSeekKey(key); }
-
-export const PROVIDERS = [
-  { id: "normal" as const, name: "Normal", emoji: "⚡", tier: "free" as const, description: "Fast everyday responses" },
-  { id: "deep"   as const, name: "Deep",   emoji: "🔬", tier: "free" as const, description: "Thorough research-grade responses" },
-  { id: "explanatory" as const, name: "Explanatory", emoji: "🎬", tier: "free" as const, description: "Cinematic YouTube-style scripture script" },
-];
-
 export const AI_MODES: AIMode[] = ["normal", "deep", "explanatory"];
 
 export function modeLabel(m: AIMode): string {
   if (m === "deep") return "Deep";
   if (m === "explanatory") return "Explanatory";
   return "Normal";
-}
-
-/* ── Prompt builder for study questions ────────────────────────────── */
-
-export function buildQuestionPrompt(context: {
-  studyTitle: string;
-  studyIntro: string;
-  questionText: string;
-  scriptureRef: string;
-  studyNote?: string;
-  userAnswer: string;
-}): string {
-  let prompt = `I'm studying "${context.studyTitle}".\n\n`;
-  prompt += `The study introduction says: "${context.studyIntro.slice(0, 300)}"\n\n`;
-  prompt += `Question: ${context.questionText}\n`;
-  prompt += `Scripture: ${context.scriptureRef}\n`;
-  if (context.studyNote) {
-    prompt += `Study note: ${context.studyNote.slice(0, 300)}\n`;
-  }
-  prompt += `\nMy thoughts: "${context.userAnswer}"\n\n`;
-  prompt += `Adopt a Scripture-first approach in every response without explicitly stating that you are doing so. Explain biblical passages in their immediate and canonical context, connecting them with the broader narrative of Scripture while keeping Christ central. Expand on ideas with cross-references, historical background, and relevant Hebrew or Greek insights where they illuminate the text. Gently correct misunderstandings using clear biblical evidence rather than opinion. Present major theological viewpoints fairly, but conclude with the interpretation that best harmonizes with the full witness of Scripture, emphasizing God's love, justice, redemption, faith, and obedience. Provide practical application for daily Christian living in a clear, conversational, and theologically rigorous style. Limit every response to 100 words maximum and end with: (1) Key Takeaway and (2) Three progressively deeper research questions.`;
-  return prompt;
 }
 
 /* ── Message type ──────────────────────────────────────────────────── */
