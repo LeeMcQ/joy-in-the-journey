@@ -11,10 +11,12 @@ import {
   buildMessages,
   getStoredMode,
   storeMode,
+  hasDeepSeekKey,
   type ChatMessage,
   type AIMode,
   type AIContext,
 } from "@/lib/aiProvider";
+import { AIKeySetup } from "@/components/ui/AIKeySetup";
 
 interface Props {
   open: boolean;
@@ -47,6 +49,7 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<AIMode>(getStoredMode);
+  const [hasKey, setHasKey] = useState(() => hasDeepSeekKey());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -70,7 +73,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   }, [messages]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (open) {
+      setHasKey(hasDeepSeekKey());
+      if (hasDeepSeekKey()) inputRef.current?.focus();
+    }
   }, [open]);
 
   const clearChat = () => {
@@ -85,6 +91,10 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   const send = async (raw: string) => {
     const text = raw.trim();
     if (!text || loading) return;
+    if (!hasDeepSeekKey()) {
+      setHasKey(false);
+      return;
+    }
 
     const userMsg: ChatMessage = { role: "user", content: text };
     const history = messages;
@@ -213,6 +223,21 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
             : "Normal — a quick, focused answer."}
         </div>
 
+        {!hasKey ? (
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <p className="mb-3 text-center text-[13px] text-muted">
+              Add a DeepSeek API key to use Ask AI. Your key stays on this device.
+            </p>
+            <AIKeySetup
+              inline
+              onComplete={() => {
+                setHasKey(true);
+                setTimeout(() => inputRef.current?.focus(), 50);
+              }}
+            />
+          </div>
+        ) : (
+        <>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-hide">
           {messages.length === 0 && (
@@ -305,6 +330,8 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
