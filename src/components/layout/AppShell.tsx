@@ -9,7 +9,7 @@ import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { InstallBanner } from "@/components/ui/InstallBanner";
 
 const tabs = [
-  { path: "/",         icon: Home,          label: "Home",    isAI: false },
+  { path: "/home",     icon: Home,          label: "Home",    isAI: false },
   { path: "/studies",  icon: BookOpen,       label: "Studies", isAI: false },
   { path: "/bible",    icon: BookMarked,     label: "Bible",   isAI: false },
   { path: "/notes",    icon: BookHeart,      label: "Journal", isAI: false },
@@ -36,7 +36,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [location.pathname]);
 
   const activeTab = tabs.find(
-    (t) => !t.isAI && (t.path === "/" ? location.pathname === "/" : location.pathname.startsWith(t.path))
+    (t) => !t.isAI && (t.path === "/home"
+      ? location.pathname === "/home" || location.pathname === "/"
+      : location.pathname.startsWith(t.path))
   );
 
   return (
