@@ -8,6 +8,8 @@ import {
   buildMessages,
   getStoredMode,
   storeMode,
+  modeLabel,
+  AI_MODES,
   type AIMode,
 } from "@/lib/aiProvider";
 
@@ -97,20 +99,21 @@ export function AskAIButton({
     <div className="mt-2 space-y-2">
       {!response && !loading && (
         <div className="flex items-center gap-2">
-          {/* Normal / Deep toggle */}
+          {/* Normal / Deep / Explanatory toggle */}
           <div className="flex items-center rounded-lg bg-gold-500/8 p-0.5">
-            {(["normal", "deep"] as AIMode[]).map((m) => (
+            {AI_MODES.map((m) => (
               <button
                 key={m}
                 onClick={() => handleModeChange(m)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-all",
+                  "rounded-md py-1 text-[10px] font-bold uppercase tracking-wide transition-all",
+                  m === "explanatory" ? "px-1.5" : "px-2.5",
                   mode === m
                     ? "bg-gold-500 text-navy-900"
                     : "text-gold-500/50 hover:text-gold-500/80",
                 )}
               >
-                {m === "normal" ? "Normal" : "Deep"}
+                {modeLabel(m)}
               </button>
             ))}
           </div>
@@ -132,7 +135,11 @@ export function AskAIButton({
         <div className="flex items-center gap-2 rounded-lg bg-gold-500/5 px-3 py-2">
           <Loader2 size={14} className="animate-spin text-gold-500" />
           <span className="text-muted text-[12px]">
-            {mode === "deep" ? "Deep study…" : "Thinking…"}
+            {mode === "explanatory"
+              ? "Writing script…"
+              : mode === "deep"
+                ? "Deep study…"
+                : "Thinking…"}
           </span>
           <button onClick={handleCancel} className="ml-auto rounded p-1 active:opacity-70">
             <X size={12} className="text-muted" />
