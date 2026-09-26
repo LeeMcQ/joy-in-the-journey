@@ -1,7 +1,9 @@
-import { CheckCircle2, Shield, X } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/ui/ThemeProvider";
-import { clearDeepSeekKey, isAIReady } from "@/lib/aiProvider";
+import { clearDeepSeekKey } from "@/lib/aiProvider";
+import { useAIProvider } from "@/hooks/useAIProvider";
+import { AIProviderSettings } from "@/components/ui/AIProviderSettings";
 import { useEffect } from "react";
 
 interface AIKeySetupProps {
@@ -13,12 +15,12 @@ interface AIKeySetupProps {
 }
 
 /**
- * Legacy name kept for call sites. AI no longer needs a browser API key —
- * requests go through a secure server proxy.
+ * Legacy name kept for call sites. Wraps the AI provider picker
+ * (Joy in the Journey server, or bring your own key).
  */
 export function AIKeySetup({ onComplete, onSkip, inline = false }: AIKeySetupProps) {
   const { isDark } = useTheme();
-  const ready = isAIReady();
+  const { hasKey: ready } = useAIProvider();
 
   useEffect(() => {
     // Drop any legacy key from older builds so it cannot leak.
@@ -31,7 +33,7 @@ export function AIKeySetup({ onComplete, onSkip, inline = false }: AIKeySetupPro
         <div>
           <h2 className="font-display text-xl font-bold">AI Study Assistant</h2>
           <p className="text-muted text-[13px] mt-0.5">
-            Ready to help with Scripture questions
+            Choose the AI that answers your questions
           </p>
         </div>
         {!inline && onSkip && (
@@ -45,43 +47,11 @@ export function AIKeySetup({ onComplete, onSkip, inline = false }: AIKeySetupPro
         )}
       </div>
 
-      <div className="mx-5 mb-3 rounded-xl bg-gold-500/10 border border-gold-500/20 px-4 py-3 flex-shrink-0">
-        <p className="text-[12px] text-gold-400 leading-relaxed flex gap-2">
-          <Shield size={14} className="shrink-0 mt-0.5" />
-          <span>
-            <strong>AI runs via a secure server proxy.</strong> No API key is
-            stored or entered in your browser.
-          </span>
-        </p>
-      </div>
-
       <div
-        className="flex-1 overflow-y-auto px-5 space-y-4 pb-4"
+        className="flex-1 overflow-y-auto px-5 pb-4"
         style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
       >
-        <div
-          className={cn(
-            "rounded-2xl border p-4",
-            ready
-              ? "border-gold-500/50 bg-gold-500/5"
-              : isDark
-                ? "border-white/8 bg-navy-800/60"
-                : "border-black/8 bg-white/60",
-          )}
-        >
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="text-sm font-bold">Ask AI</span>
-            {ready && (
-              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
-                <CheckCircle2 size={11} /> Ready
-              </span>
-            )}
-          </div>
-          <p className="text-[12px] text-secondary leading-relaxed">
-            Use Normal, Deep, or Explanatory mode from Ask AI. Answers are
-            grounded in Scripture and Adventist teaching.
-          </p>
-        </div>
+        <AIProviderSettings />
       </div>
 
       {!inline && (
@@ -102,7 +72,7 @@ export function AIKeySetup({ onComplete, onSkip, inline = false }: AIKeySetupPro
               !ready && "opacity-40 cursor-not-allowed",
             )}
           >
-            {ready ? "Done" : "Unavailable"}
+            {ready ? "Done" : "Save a key first"}
           </button>
         </div>
       )}
