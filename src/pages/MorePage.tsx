@@ -335,11 +335,13 @@ export function MorePage() {
           if (confirm("Reset all progress, plan, and settings? This cannot be undone.")) {
             indexedDB.deleteDatabase("joy-journey-db");
             indexedDB.deleteDatabase("joy-bible-cache");
-            indexedDB.deleteDatabase("joy-journey-bible");
+            indexedDB.deleteDatabase("joy-bible-db"); // Xhosa (XHO75) engine
+            indexedDB.deleteDatabase("joy-journey-bible"); // legacy
             localStorage.removeItem("joy-journey-storage");
-            // Clear all fullBible_ flags
+            // Clear "downloaded" flags too — otherwise AFR/KJV/WEB kept showing
+            // as saved offline after their cached chapters were deleted.
             Object.keys(localStorage)
-              .filter((k) => k.startsWith("fullBible_"))
+              .filter((k) => k.startsWith("joy-bible-ready-") || k.startsWith("fullBible_"))
               .forEach((k) => localStorage.removeItem(k));
             showToast("All data reset", { type: "info" });
             setTimeout(() => window.location.reload(), 500);

@@ -1,16 +1,48 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import fs from "fs";
 import path from "path";
+import studiesData from "./src/data/studies.json";
 
 // GitHub Pages base path (change only if you rename the repo)
 const GITHUB_REPO_BASE = "/joy-in-the-journey/";
+
+/**
+ * GitHub Pages has no SPA rewrites: deep links such as /bible (the PWA
+ * start_url) were served from 404.html with HTTP 404, which logs a console
+ * error and can upset installability checks. Pages serves "/bible" from
+ * "bible.html", so emit a copy of index.html for every client route.
+ */
+const SPA_ROUTES = [
+  "bible", "home", "studies", "notes", "more",
+  ...(studiesData as { studies: { id: number }[] }).studies.map((s) => `study/${s.id}`),
+];
+
+function spaRouteFallbacks(routes: string[]): Plugin {
+  let outDir = "dist";
+  return {
+    name: "spa-route-fallbacks",
+    apply: "build",
+    configResolved(cfg) { outDir = path.resolve(cfg.root, cfg.build.outDir); },
+    writeBundle() {
+      const index = path.join(outDir, "index.html");
+      if (!fs.existsSync(index)) return;
+      for (const r of routes) {
+        const file = path.join(outDir, `${r}.html`);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.copyFileSync(index, file);
+      }
+    },
+  };
+}
 
 export default defineConfig({
   base: GITHUB_REPO_BASE,
 
   plugins: [
     react(),
+    spaRouteFallbacks(SPA_ROUTES),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: [
@@ -51,6 +83,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Keep the install-time precache lean: skip the per-route HTML copies
+        // (navigateFallback serves index.html) and duplicate/unused icon files
+        // (~1.7 MB, incl. a 685 KB icons/favicon.svg nothing references).
+        globIgnores: [
+          "**/node_modules/**",
+          "404.html",
+          ...SPA_ROUTES.map((r) => `${r}.html`),
+          "icons/Icon-512.png",
+          "icons/web-app-manifest-*.png",
+          "icons/favicon.svg",
+        ],
         navigateFallback: `${GITHUB_REPO_BASE}index.html`,
         navigateFallbackAllowlist: [/^\/(?!api\/).*/],
         runtimeCaching: [

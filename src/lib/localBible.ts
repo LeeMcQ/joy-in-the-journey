@@ -82,16 +82,33 @@ const DB_NAME = "joy-bible-cache";
 const STORE_NAME = "chapters";
 const DB_VERSION = 1;
 
+/**
+ * One shared connection per page. Previously every cache read/write opened a
+ * brand-new connection that was never closed (~2,400 per full download), and
+ * the leaked connections also blocked indexedDB.deleteDatabase() in
+ * "Reset Everything".
+ */
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      // Let deleteDatabase()/upgrades from other code or tabs proceed.
+      db.onversionchange = () => { db.close(); dbPromise = null; };
+      db.onclose = () => { dbPromise = null; };
+      resolve(db);
+    };
+    req.onerror = () => { dbPromise = null; reject(req.error); };
+    req.onblocked = () => { /* wait — another tab holds an old connection */ };
   });
+  return dbPromise;
 }
 
 function cacheKey(t: TranslationId, book: string, ch: number): string {
@@ -151,7 +168,12 @@ async function getFromCache(key: string): Promise<LocalVerse[] | null> {
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, "readonly");
       const req = tx.objectStore(STORE_NAME).get(key);
-      req.onsuccess = () => resolve(req.result ?? null);
+      // Re-clean on read so chapters cached by older builds (which kept the
+      // KJV red-letter markers ‹ ›) display correctly without a re-download.
+      req.onsuccess = () => {
+        const rows = req.result as LocalVerse[] | undefined;
+        resolve(rows ? rows.map((v) => ({ ...v, text: cleanVerseText(v.text) })) : null);
+      };
       req.onerror = () => resolve(null);
     });
   } catch { return null; }
@@ -189,8 +211,10 @@ const fullBibleMemoryCache = new Map<TranslationId, LocalVerse[]>();
 
 function cleanVerseText(text: unknown): string {
   return String(text ?? "")
-    .replace(/\[([^\]]*)\]/g, "$1")
+    .replace(/\[([^\]]*)\]/g, "$1")   // KJV/WEB italics markers: [was]
+    .replace(/[‹›]/g, "")              // KJV red-letter (words of Christ) markers
     .replace(/¶\s*/g, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
@@ -473,6 +497,82 @@ export async function lookupMultiTranslation(rawRef: string): Promise<Map<Transl
   return map;
 }
 
+/* ── Public: Word search ──────────────────────────────── */
+
+export interface WordSearchResult {
+  query: string;
+  translation: TranslationId;
+  verses: LocalVerse[];
+  /** True when more matches exist than were returned. */
+  truncated: boolean;
+}
+
+/** Normalised verse text per loaded Bible (keyed by the verse array). */
+const searchIndexCache = new WeakMap<LocalVerse[], string[]>();
+
+/** Lower-case, strip accents/punctuation so "Thixo," matches "uThixo". */
+export function normaliseForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Free-text search. Every query word must appear (as a substring, which suits
+ * isiXhosa where nouns carry prefixes: "thixo" matches "uThixo"/"kaThixo").
+ * Xhosa searches the installed IndexedDB copy; the others scan the full
+ * bundled JSON (served from the service-worker cache once downloaded).
+ */
+export async function searchText(
+  query: string,
+  translation: TranslationId,
+  maxResults = 100,
+): Promise<WordSearchResult> {
+  const terms = normaliseForSearch(query).split(" ").filter((w) => w.length >= 2);
+  const empty: WordSearchResult = { query, translation, verses: [], truncated: false };
+  if (!terms.length) return empty;
+
+  let all: LocalVerse[] | null;
+  if (translation === "xho") {
+    all = fullBibleMemoryCache.get("xho") ?? null;
+    if (!all) {
+      const { getAllVersesFromDB, isTranslationInstalled } = await import("@/lib/bibleDB");
+      if (!(await isTranslationInstalled("XHO75"))) {
+        throw new Error("The Xhosa Bible hasn't been downloaded yet.");
+      }
+      all = (await getAllVersesFromDB("XHO75")).map((v) => ({
+        book: v.book, chapter: v.chapter, verse: v.verse, text: v.text,
+      }));
+      if (all.length) fullBibleMemoryCache.set("xho", all);
+    }
+  } else {
+    all = await loadFullBibleIntoMemory(translation);
+  }
+  if (!all?.length) return empty;
+
+  let index = searchIndexCache.get(all);
+  if (!index) {
+    index = all.map((v) => normaliseForSearch(v.text));
+    searchIndexCache.set(all, index);
+  }
+
+  const hits: LocalVerse[] = [];
+  let truncated = false;
+  for (let i = 0; i < all.length; i++) {
+    const v = all[i];
+    const hay = index[i];
+    if (terms.every((t) => hay.includes(t))) {
+      if (hits.length >= maxResults) { truncated = true; break; }
+      hits.push(v);
+    }
+  }
+  return { query, translation, verses: hits, truncated };
+}
+
 /* ── Download progress ────────────────────────────────── */
 
 export interface DownloadProgress {
@@ -501,9 +601,8 @@ export async function downloadTranslation(
         const denom = p.total || 1;
         const scaled = Math.min(TOTAL_CHAPTERS, Math.round((p.done / denom) * TOTAL_CHAPTERS));
         const label =
-          p.phase === "fetching"  ? "Laai Xhosa Bybel af…" :
-          p.phase === "importing" ? "Stoor verse…" :
-          p.phase === "indexing"  ? "Bou soekindeks…" :
+          p.phase === "fetching"  ? "Downloading Xhosa Bible…" :
+          p.phase === "importing" ? "Saving verses…" :
           "";
         onProgress({
           total: TOTAL_CHAPTERS,

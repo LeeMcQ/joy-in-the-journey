@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { useStoreHydrated } from "@/hooks/useStoreHydrated";
 import type { AppSettings, FontFamily } from "@/data/types";
 
 /* ------------------------------------------------------------------ */
@@ -57,15 +58,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const fontSize = useAppStore((s) => s.settings.fontSize);
   const fontFamily = useAppStore((s) => s.settings.fontFamily);
 
+  const hydrated = useStoreHydrated();
+
   /* Apply theme class + meta color */
   useEffect(() => {
+    // Until settings load, keep the class the pre-paint script in index.html
+    // applied; applying the default "dark" first made light/sepia flash.
+    if (!hydrated) return;
     const root = document.documentElement;
     root.classList.remove("theme-light", "theme-dark", "theme-sepia");
     root.classList.add(`theme-${mode}`);
 
     const meta = document.querySelector('meta[name="theme-color"]');
     meta?.setAttribute("content", META_COLORS[mode]);
-  }, [mode]);
+    // Settings persist to IndexedDB (async), which the pre-paint script in
+    // index.html cannot read — mirror the theme to localStorage for it.
+    try { localStorage.setItem("joy-theme", mode); } catch { /* ignore */ }
+  }, [mode, hydrated]);
 
   /* Reading font size/family as CSS vars — scoped to .reading-content, not rem root */
   useEffect(() => {

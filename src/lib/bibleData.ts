@@ -115,7 +115,7 @@ export function parseReference(raw: string): ParsedRef | null {
 
   // Match: "Book Chapter:VerseStart-VerseEnd" or "Book Chapter:Verse" or "Book Chapter"
   const m = s.match(
-    /^(\d?\s*[A-Za-z][A-Za-z .]+?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(\d+))?)?$/,
+    /^(\d?\s*\p{L}[\p{L}\p{M} .'’-]+?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(\d+))?)?$/u,
   );
   if (!m) return null;
 
@@ -222,31 +222,82 @@ export const AFR_BOOK_NAMES: Record<string, string> = {
 
 /* ================================================================== */
 /*  Xhosa (XHO75) book name translations                             */
+/*  Taken from the table of contents of IZIBHALO EZINGCWELE (1975,   */
+/*  Bible Society of South Africa). Numbered books use a leading     */
+/*  numeral ("1 USamuweli") instead of the printed roman suffix       */
+/*  ("USamuweli I") so they sort/scan like the other translations.   */
 /* ================================================================== */
 
 export const XHO_BOOK_NAMES: Record<string, string> = {
-  "Genesis": "Genesisi","Exodus": "Eksodus","Leviticus": "Levitikus",
-  "Numbers": "Izibalelo","Deuteronomy": "Duteronomi","Joshua": "Yoshuwa",
-  "Judges": "Abahluleli","Ruth": "Rute","1 Samuel": "1 Samuweli",
-  "2 Samuel": "2 Samuweli","1 Kings": "1 Kumkani","2 Kings": "2 Kumkani",
-  "1 Chronicles": "1 Izilandelo","2 Chronicles": "2 Izilandelo",
-  "Ezra": "Ezra","Nehemiah": "Nehemiya","Esther": "Esti","Job": "Yobhi",
-  "Psalms": "IiNdumiso","Proverbs": "IMizekeliso","Ecclesiastes": "UMthunyeli",
-  "Song of Solomon": "Ingoma yezingoma","Isaiah": "Isaya","Jeremiah": "Yeremiya",
-  "Lamentations": "IziLilo","Ezekiel": "Hezekile","Daniel": "Daniyeli",
-  "Hosea": "Hoseya","Joel": "Yoweli","Amos": "Amosi","Obadiah": "Obadiya",
-  "Jonah": "Yona","Micah": "Mika","Nahum": "Nahum","Habakkuk": "Habakuki",
-  "Zephaniah": "Zefaniya","Haggai": "Hagayi","Zechariah": "Zakariya",
-  "Malachi": "Malaki","Matthew": "Mateyu","Mark": "Marko","Luke": "Luka",
-  "John": "Yohane","Acts": "IZenzo","Romans": "AmaRoma",
-  "1 Corinthians": "1 AmaKorinte","2 Corinthians": "2 AmaKorinte",
-  "Galatians": "AmaGalati","Ephesians": "AmaEfese","Philippians": "AmaFiliphi",
-  "Colossians": "AmaKolose","1 Thessalonians": "1 AmaThesalonika",
-  "2 Thessalonians": "2 AmaThesalonika","1 Timothy": "1 Timoti",
-  "2 Timothy": "2 Timoti","Titus": "Tito","Philemon": "Filemon",
-  "Hebrews": "AmaHebhere","James": "Yakobi","1 Peter": "1 Petros",
-  "2 Peter": "2 Petros","1 John": "1 Yohane","2 John": "2 Yohane",
-  "3 John": "3 Yohane","Jude": "Yuda","Revelation": "ISityhilelo",
+  // Testamente Endala
+  "Genesis": "IGenesis", "Exodus": "IEksodus", "Leviticus": "ILevitikus",
+  "Numbers": "INumeri", "Deuteronomy": "IDuteronomi", "Joshua": "UYoshuwa",
+  "Judges": "AbaGwebi", "Ruth": "URute",
+  "1 Samuel": "1 USamuweli", "2 Samuel": "2 USamuweli",
+  "1 Kings": "1 OoKumkani", "2 Kings": "2 OoKumkani",
+  "1 Chronicles": "1 IziKronike", "2 Chronicles": "2 IziKronike",
+  "Ezra": "UEzra", "Nehemiah": "UNehemiya", "Esther": "UEstere", "Job": "UYobhi",
+  "Psalms": "IiNdumiso", "Proverbs": "IMizekeliso", "Ecclesiastes": "INtshumayeli",
+  "Song of Solomon": "INgoma yazo iiNgoma", "Isaiah": "UIsaya", "Jeremiah": "UYeremiya",
+  "Lamentations": "IZililo", "Ezekiel": "UHezekile", "Daniel": "UDaniyeli",
+  "Hosea": "UHoseya", "Joel": "UYoweli", "Amos": "UAmosi", "Obadiah": "UObhadiya",
+  "Jonah": "UYona", "Micah": "UMika", "Nahum": "UNahum", "Habakkuk": "UHabhakuki",
+  "Zephaniah": "UZefaniya", "Haggai": "UHagayi", "Zechariah": "UZekariya",
+  "Malachi": "UMalaki",
+  // Testamente Entsha
+  "Matthew": "UMateyu", "Mark": "UMarko", "Luke": "ULuka", "John": "UYohane",
+  "Acts": "IZenzo", "Romans": "KwabaseRoma",
+  "1 Corinthians": "1 KwabaseKorinte", "2 Corinthians": "2 KwabaseKorinte",
+  "Galatians": "KumaGalati", "Ephesians": "Kwabase-Efese", "Philippians": "KwabaseFilipi",
+  "Colossians": "KwabaseKolose",
+  "1 Thessalonians": "1 KwabaseTesalonika", "2 Thessalonians": "2 KwabaseTesalonika",
+  "1 Timothy": "1 KuTimoti", "2 Timothy": "2 KuTimoti", "Titus": "KuTito",
+  "Philemon": "KuFilemon", "Hebrews": "KumaHebhere", "James": "EkaYakobi",
+  "1 Peter": "1 KaPetros", "2 Peter": "2 KaPetros",
+  "1 John": "1 KaYohane", "2 John": "2 KaYohane", "3 John": "3 KaYohane",
+  "Jude": "EkaYuda", "Revelation": "IsiTyhilelo",
+};
+
+/**
+ * Extra Xhosa spellings accepted in the reference search box: the short
+ * stems people type without the noun-class prefix (e.g. "Yohane 3:16"),
+ * wordproject-style variants, and the names the app displayed before.
+ */
+const XHO_BOOK_ALIASES: Record<string, string> = {
+  "genesis": "Genesis", "genesisi": "Genesis", "eksodus": "Exodus", "levitikus": "Leviticus",
+  "numeri": "Numbers", "izibalelo": "Numbers", "duteronomi": "Deuteronomy",
+  "yoshuwa": "Joshua", "abagwebi": "Judges", "abahluleli": "Judges", "rute": "Ruth",
+  "1 samuweli": "1 Samuel", "2 samuweli": "2 Samuel",
+  "1 kasamuweli": "1 Samuel", "2 kasamuweli": "2 Samuel",
+  "1 kumkani": "1 Kings", "2 kumkani": "2 Kings",
+  "1 yookumkani": "1 Kings", "2 yookumkani": "2 Kings",
+  "1 kronike": "1 Chronicles", "2 kronike": "2 Chronicles",
+  "1 yezikronike": "1 Chronicles", "2 yezikronike": "2 Chronicles",
+  "1 izilandelo": "1 Chronicles", "2 izilandelo": "2 Chronicles",
+  "nehemiya": "Nehemiah", "estere": "Esther", "esti": "Esther", "yobhi": "Job",
+  "indumiso": "Psalms", "ndumiso": "Psalms", "mizekeliso": "Proverbs",
+  "ntshumayeli": "Ecclesiastes", "umthunyeli": "Ecclesiastes",
+  "ingoma yezingoma": "Song of Solomon", "isaya": "Isaiah", "yeremiya": "Jeremiah",
+  "izililo": "Lamentations", "hezekile": "Ezekiel", "daniyeli": "Daniel",
+  "hoseya": "Hosea", "yoweli": "Joel", "amosi": "Amos", "uamos": "Amos",
+  "obhadiya": "Obadiah", "obadiya": "Obadiah", "yona": "Jonah", "mika": "Micah",
+  "habhakuki": "Habakkuk", "habakuki": "Habakkuk", "zefaniya": "Zephaniah",
+  "hagayi": "Haggai", "zekariya": "Zechariah", "zakariya": "Zechariah", "malaki": "Malachi",
+  "mateyu": "Matthew", "marko": "Mark", "luka": "Luke", "yohane": "John", "zenzo": "Acts",
+  "roma": "Romans", "amaroma": "Romans",
+  "1 korinte": "1 Corinthians", "2 korinte": "2 Corinthians",
+  "1 amakorinte": "1 Corinthians", "2 amakorinte": "2 Corinthians",
+  "galati": "Galatians", "amagalati": "Galatians",
+  "kwabaseefese": "Ephesians", "kwabase efese": "Ephesians", "efese": "Ephesians", "amaefese": "Ephesians",
+  "filipi": "Philippians", "amafiliphi": "Philippians", "kolose": "Colossians", "amakolose": "Colossians",
+  "1 tesalonika": "1 Thessalonians", "2 tesalonika": "2 Thessalonians",
+  "1 amathesalonika": "1 Thessalonians", "2 amathesalonika": "2 Thessalonians",
+  "1 timoti": "1 Timothy", "2 timoti": "2 Timothy", "tito": "Titus", "filemon": "Philemon",
+  "hebhere": "Hebrews", "amahebhere": "Hebrews", "yakobi": "James",
+  "1 petros": "1 Peter", "2 petros": "2 Peter",
+  "1 yohane": "1 John", "2 yohane": "2 John", "3 yohane": "3 John",
+  "1 uyohane": "1 John", "2 uyohane": "2 John", "3 uyohane": "3 John",
+  "yuda": "Jude", "sityhilelo": "Revelation", "isityhilelo": "Revelation",
 };
 
 export function getBookDisplayName(englishName: string, translation: string): string {
@@ -257,7 +308,7 @@ export function getBookDisplayName(englishName: string, translation: string): st
 
 export function getTestamentLabel(testament: "OT" | "NT", translation: string): string {
   if (translation === "afr") return testament === "OT" ? "Ou Testament" : "Nuwe Testament";
-  if (translation === "xho") return testament === "OT" ? "Ufanelo Lwakudala" : "Ufanelo Olutsha";
+  if (translation === "xho") return testament === "OT" ? "Testamente Endala" : "Testamente Entsha";
   return testament === "OT" ? "Old Testament" : "New Testament";
 }
 
@@ -269,5 +320,6 @@ export function getChaptersLabel(translation: string): string {
 
 export const LOCALISED_TO_ENG: Record<string, string> = {
   ...Object.fromEntries(Object.entries(AFR_BOOK_NAMES).map(([en, af]) => [af.toLowerCase(), en])),
+  ...XHO_BOOK_ALIASES,
   ...Object.fromEntries(Object.entries(XHO_BOOK_NAMES).map(([en, xh]) => [xh.toLowerCase(), en])),
 };

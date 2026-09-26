@@ -37,5 +37,8 @@ export async function shareToWhatsApp(text: string): Promise<void> {
 
 export async function shareOrCopy(text: string, toast: (msg: string) => void): Promise<void> {
   try { await shareToWhatsApp(text); }
-  catch { try { await navigator.clipboard.writeText(text); toast("Copied to clipboard — paste into WhatsApp"); } catch { toast("Could not share — please copy manually"); } }
+  catch (err) {
+    // User closed the share sheet — not an error, don't copy/toast.
+    if ((err as Error)?.name === "AbortError") return;
+    try { await navigator.clipboard.writeText(text); toast("Copied to clipboard — paste into WhatsApp"); } catch { toast("Could not share — please copy manually"); } }
 }

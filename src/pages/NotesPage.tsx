@@ -52,7 +52,10 @@ export function NotesPage() {
   const getCompletionPercent = useAppStore((s) => s.getCompletionPercent);
   const overallPct        = useAppStore((s) => s.overallPercent());
   const totalAnswered     = useAppStore((s) => s.totalAnswered());
-  const totalHL           = useAppStore((s) => s.totalHighlights());
+  const studyHL           = useAppStore((s) => s.totalHighlights());
+  const savedVerses       = useAppStore((s) => s.savedVerses);
+  const removeSavedVerse  = useAppStore((s) => s.removeSavedVerse);
+  const totalHL           = studyHL + savedVerses.length;
 
   const [tab, setTab] = useState<Tab>("timeline");
   const [shareModal, setShareModal] = useState<{ open: boolean; text: string; title: string }>({ open: false, text: "", title: "" });
@@ -114,7 +117,7 @@ export function NotesPage() {
               <button onClick={() => navigate(`/study/${dailyRevisit.studyId}`)} className="mt-2 text-[11px] font-semibold text-gold-500 active:opacity-70">Reflect further →</button>
             </div>
           )}
-          {answerGroups.length === 0 && allHighlights.length === 0 && (
+          {answerGroups.length === 0 && allHighlights.length === 0 && savedVerses.length === 0 && (
             <div className="flex flex-col items-center gap-4 py-16 text-center">
               <BookHeart size={28} className="opacity-30 text-muted" />
               <p className="text-secondary text-sm font-medium">Your spiritual journey begins here</p>
@@ -211,7 +214,25 @@ export function NotesPage() {
       {/* HIGHLIGHTS */}
       {tab === "highlights" && (
         <>
-          {allHighlights.length === 0 && <div className="flex flex-col items-center gap-4 py-16 text-center"><Highlighter size={28} className="opacity-30 text-muted" /><p className="text-secondary text-sm">No highlights yet</p><p className="text-muted text-[13px]">Select text in any study and choose a colour.</p></div>}
+          {allHighlights.length === 0 && savedVerses.length === 0 && <div className="flex flex-col items-center gap-4 py-16 text-center"><Highlighter size={28} className="opacity-30 text-muted" /><p className="text-secondary text-sm">No highlights yet</p><p className="text-muted text-[13px]">Select text in any study and choose a colour, or tap a verse and press Save.</p></div>}
+          {savedVerses.length > 0 && <p className="text-2xs font-bold uppercase tracking-caps text-gold-500">Saved verses</p>}
+          {savedVerses.map((sv) => (
+            <div key={sv.id} className="card card-surface animate-fade-in">
+              <div className="flex items-start gap-3">
+                <BookOpen size={14} className="mt-1 shrink-0 text-gold-500/70" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-scripture text-[14px] leading-relaxed text-secondary">{sv.text}</p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button onClick={() => navigate(`/bible?ref=${encodeURIComponent(sv.reference)}`)} className="text-muted text-[11px] hover:text-gold-500">{sv.reference} ({sv.translation})</button>
+                    <span className="text-muted text-[10px]">·</span>
+                    <span className="text-muted text-[10px]">{new Date(sv.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <button onClick={() => removeSavedVerse(sv.id)} aria-label={`Remove ${sv.reference}`} className="shrink-0 rounded-md p-1.5 text-muted hover:text-red-400 active:bg-red-500/10"><Trash2 size={14} /></button>
+              </div>
+            </div>
+          ))}
+          {savedVerses.length > 0 && allHighlights.length > 0 && <p className="mt-2 text-2xs font-bold uppercase tracking-caps text-gold-500">Study highlights</p>}
           {allHighlights.map(({ studyId, studyTitle, highlight: hl }) => {
             const cfg = colorConfig(hl.color);
             return (

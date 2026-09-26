@@ -6,12 +6,13 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useStoreHydrated } from "@/hooks/useStoreHydrated";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { BIBLE_BOOKS, OT_BOOKS, NT_BOOKS, parseReference, getBookDisplayName, getTestamentLabel, getChaptersLabel, LOCALISED_TO_ENG, type BibleBook } from "@/lib/bibleData";
 import { normaliseReference } from "@/lib/scriptureUtils";
 import {
-  getChapter, lookupReference,
+  getChapter, lookupReference, searchText,
   downloadTranslation, getCachedChapterCount,
   LOCAL_TRANSLATIONS, ONLINE_TRANSLATIONS, bibleGatewayUrl,
   type TranslationId, type VerseResult, type LocalVerse, type DownloadProgress,
@@ -20,6 +21,12 @@ import { BiblePopup } from "@/components/study/BiblePopup";
 
 type ViewMode = "bookSelect" | "chapterSelect" | "reading" | "search" | "download";
 
+/** Resolve an English or localised (AFR/XHO) book name to canon metadata. */
+function resolveBook(name: string): BibleBook | undefined {
+  const english = LOCALISED_TO_ENG[name.toLowerCase()] ?? name;
+  return BIBLE_BOOKS.find((b) => b.name.toLowerCase() === english.toLowerCase());
+}
+
 export function BiblePage() {
   const { isDark } = useTheme();
   const isOnline = useOnlineStatus();
@@ -27,6 +34,8 @@ export function BiblePage() {
   const bibleBookmark = useAppStore((s) => s.bibleBookmark);
   const setBibleBookmark = useAppStore((s) => s.setBibleBookmark);
   const bookmarkRestoredRef = useRef(false);
+  const deepLinkRef = useRef(searchParams.get("ref"));
+  const hydrated = useStoreHydrated();
 
   const [view, setView] = useState<ViewMode>("bookSelect");
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
@@ -43,6 +52,7 @@ export function BiblePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<VerseResult | null>(null);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Download state
   const [dlProgress, setDlProgress] = useState<DownloadProgress | null>(null);
@@ -72,22 +82,23 @@ export function BiblePage() {
     }
   }, [dlProgress?.status, refreshCounts]);
 
-  // Restore last position on first mount
+  // Restore last position (and translation) once the persisted store has
+  // rehydrated from IndexedDB — reading it on first render raced the async
+  // hydration and could silently drop the bookmark.
   useEffect(() => {
-    if (bookmarkRestoredRef.current) return;
-    if (searchParams.get("ref")) return;
+    if (!hydrated || bookmarkRestoredRef.current) return;
     bookmarkRestoredRef.current = true;
-    if (bibleBookmark) {
-      const book = BIBLE_BOOKS.find((b) => b.name === bibleBookmark.book);
-      if (book) {
-        setSelectedBook(book);
-        setSelectedChapter(bibleBookmark.chapter);
-        const t = bibleBookmark.translation as import("@/lib/localBible").TranslationId;
-        if (LOCAL_TRANSLATIONS.some((l) => l.id === t)) setTranslation(t);
-        setView("reading");
-      }
+    if (!bibleBookmark) return;
+    const t = bibleBookmark.translation as TranslationId;
+    if (LOCAL_TRANSLATIONS.some((l) => l.id === t)) setTranslation(t);
+    if (deepLinkRef.current) return; // ?ref= decides the passage
+    const book = BIBLE_BOOKS.find((b) => b.name === bibleBookmark.book);
+    if (book) {
+      setSelectedBook(book);
+      setSelectedChapter(bibleBookmark.chapter);
+      setView("reading");
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save position on change
   useEffect(() => {
@@ -102,7 +113,7 @@ export function BiblePage() {
     if (!ref) return;
     const parsed = parseReference(normaliseReference(ref));
     if (!parsed) return;
-    const book = BIBLE_BOOKS.find((b) => b.name.toLowerCase() === parsed.book.toLowerCase());
+    const book = resolveBook(parsed.book);
     if (book) {
       setSelectedBook(book);
       setSelectedChapter(parsed.chapter);
@@ -127,28 +138,49 @@ export function BiblePage() {
     return () => { cancelled = true; };
   }, [view, selectedBook, selectedChapter, translation]);
 
-  // Search
+  // Scroll a deep-linked / searched verse into view once the chapter renders
+  useEffect(() => {
+    if (view !== "reading" || !chapterData || highlightVerse == null) return;
+    const el = document.getElementById(`verse-${highlightVerse}`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [view, chapterData, highlightVerse]);
+
+  // Search: a reference ("Yohane 3:16", "Romeine 8") jumps to the passage;
+  // anything else is a word search in the current translation.
   const handleSearch = useCallback(async () => {
     const q = searchQuery.trim();
     if (!q) return;
     const parsed = parseReference(normaliseReference(q));
     if (parsed) {
-      const englishBook = LOCALISED_TO_ENG[parsed.book.toLowerCase()] ?? parsed.book;
-      const book = BIBLE_BOOKS.find((b) => b.name.toLowerCase() === englishBook.toLowerCase());
-      if (book) {
+      const book = resolveBook(parsed.book);
+      if (book && parsed.chapter >= 1 && parsed.chapter <= book.chapters) {
         setSelectedBook(book);
         setSelectedChapter(parsed.chapter);
-        if (parsed.verseStart) setHighlightVerse(parsed.verseStart);
+        setHighlightVerse(parsed.verseStart ?? null);
         setView("reading");
         return;
       }
     }
     setSearching(true);
     setSearchResults(null);
+    setSearchError(null);
     try {
-      const data = await lookupReference(normaliseReference(q), translation);
-      setSearchResults(data);
-    } catch { setSearchResults(null); }
+      const ref = await lookupReference(normaliseReference(q), translation).catch(() => null);
+      if (ref && ref.verses.length) {
+        setSearchResults(ref);
+      } else {
+        const found = await searchText(q, translation, 100);
+        setSearchResults({
+          reference: `“${q}” · ${found.verses.length}${found.truncated ? "+" : ""} ${found.verses.length === 1 ? "verse" : "verses"}`,
+          translation,
+          verses: found.verses,
+          text: "",
+        });
+      }
+    } catch (err) {
+      setSearchResults(null);
+      setSearchError(String((err as Error)?.message ?? err).replace(/^Error:\s*/i, ""));
+    }
     setSearching(false);
   }, [searchQuery, translation]);
 
@@ -232,7 +264,7 @@ export function BiblePage() {
                 className="flex items-center gap-1 py-1 text-sm font-medium text-gold-500 active:opacity-70"
               >
                 <ChevronLeft size={18} />
-                {view === "reading" ? selectedBook?.name : "Books"}
+                {view === "reading" && selectedBook ? getBookDisplayName(selectedBook.name, translation) : "Books"}
               </button>
             ) : view === "download" ? (
               <button
@@ -414,7 +446,7 @@ export function BiblePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-                placeholder="e.g. John 3:16 or Romans 8"
+                placeholder={translation === "xho" ? "e.g. Yohane 3:16 or uThixo" : "e.g. John 3:16, Romans 8 or a word"}
                 className="input pl-10 pr-4"
                 autoFocus
               />
@@ -436,7 +468,7 @@ export function BiblePage() {
                   <button
                     key={i}
                     onClick={() => {
-                      const book = BIBLE_BOOKS.find((b) => b.name.toLowerCase() === v.book.toLowerCase());
+                      const book = resolveBook(v.book);
                       if (book) {
                         setSelectedBook(book);
                         setSelectedChapter(v.chapter);
@@ -450,13 +482,21 @@ export function BiblePage() {
                       <sup className="mr-1 text-[10px] font-bold text-gold-500/60">{v.verse}</sup>
                       {v.text}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted">{v.book} {v.chapter}:{v.verse}</p>
+                    <p className="mt-1 text-[11px] text-muted">{getBookDisplayName(resolveBook(v.book)?.name ?? v.book, translation)} {v.chapter}:{v.verse}</p>
                   </button>
                 ))}
               </div>
             )}
             {searchResults && searchResults.verses.length === 0 && (
               <p className="py-12 text-center text-sm text-muted">No results found.</p>
+            )}
+            {searchError && (
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <p className="text-sm text-muted">{searchError}</p>
+                {translation === "xho" && (
+                  <button onClick={() => setView("download")} className="btn-secondary text-xs"><Download size={13} /> Download Xhosa</button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -549,7 +589,7 @@ export function BiblePage() {
                 <WifiOff size={28} className="opacity-30 text-muted" />
                 <p className="text-sm text-secondary">Could not load chapter</p>
                 <p className="max-w-[280px] whitespace-pre-line text-xs text-muted">{error}</p>
-                {translation === "xho" ? (
+                {translation === "xho" && /downloaded/i.test(error) ? (
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-xs text-amber-500">The Xhosa Bible needs to be downloaded first.</p>
                     <button onClick={() => setView("download")} className="btn-secondary text-xs"><Download size={13} /> Download now</button>
@@ -611,7 +651,7 @@ export function BiblePage() {
         )}
       </div>
 
-      <BiblePopup reference={popupRef} onClose={() => setPopupRef(null)} />
+      <BiblePopup reference={popupRef} initialTranslation={translation} onClose={() => setPopupRef(null)} />
     </>
   );
 }

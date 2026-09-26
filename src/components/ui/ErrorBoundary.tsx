@@ -13,6 +13,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info);
+    // After a new deploy, an open tab may request lazy chunks whose hashed
+    // filenames no longer exist ("Failed to fetch dynamically imported
+    // module"). Reload once to pick up the new build instead of showing the
+    // error screen.
+    const msg = String(error?.message ?? "");
+    if (/dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i.test(msg)) {
+      try {
+        const key = "joy-chunk-reload";
+        const last = Number(sessionStorage.getItem(key) ?? 0);
+        if (Date.now() - last > 30_000) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+        }
+      } catch { /* ignore */ }
+    }
   }
 
   render() {
