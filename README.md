@@ -26,6 +26,29 @@ built as a production-ready Progressive Web App.
 - ✈️ Offline support — studies + cached Bible verses
 - 🔔 PWA update notifications
 
+## Choosing an AI provider (Ask AI)
+
+Ask AI (chat, study questions and the Bible popup) can answer through either:
+
+- **Joy in the Journey server** — the shared Cloudflare Worker proxy (`VITE_AI_PROXY_URL`, default `sda-bible-ai.mcquir4l.workers.dev`). No key needed.
+- **Your own key** — pick a provider in **More → AI provider**, paste your key, tap **Save**, then **Test**.
+
+| Provider | Model | Key |
+|----------|-------|-----|
+| Gemini (recommended) | `gemini-3.8-flash` (falls back to 3.7 / 3.6) | Free tier — [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| Groq | `openai/gpt-oss-120b` | Free tier — [console.groq.com](https://console.groq.com) |
+| Grok (xAI) | `grok-4.7` | Paid — [console.x.ai](https://console.x.ai) (may hit CORS; use OpenRouter if so) |
+| DeepSeek | `deepseek-flash` | Paid — [platform.deepseek.com](https://platform.deepseek.com/api_keys) |
+| Claude (Anthropic) | `claude-sonnet-5` | Paid — [console.anthropic.com](https://console.anthropic.com) |
+| ChatGPT (OpenAI) | `gpt-5-mini` | Paid — [platform.openai.com](https://platform.openai.com/api-keys) |
+| OpenRouter | `openai/gpt-oss-120b` | Paid — [openrouter.ai/keys](https://openrouter.ai/keys) |
+
+Keys are **bring-your-own and stay on the device**: each is saved only in that browser's
+`localStorage` (`joy_ai_key_<provider>`, active choice in `joy_ai_provider`) and sent straight
+to the chosen provider — never to our server and never committed to this repo. Normal, Deep
+and Explanatory modes use the same system prompts on every route. Providers live in
+`src/lib/llmProviders.ts`; routing is in `src/lib/aiProvider.ts`.
+
 ## Quick Start
 
 ```bash

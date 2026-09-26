@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, ChevronDown, Square } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Sparkles, Send, Loader2, ChevronDown, Square, Settings2 } from "lucide-react";
 import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -11,12 +12,15 @@ import {
   getStoredMode,
   storeMode,
   isAIReady,
+  aiNotReadyReason,
+  currentProviderLabel,
   modeLabel,
   AI_MODES,
   type ChatMessage,
   type AIMode,
   type AIContext,
 } from "@/lib/aiProvider";
+import { useAIProvider } from "@/hooks/useAIProvider";
 
 interface Props {
   open: boolean;
@@ -48,7 +52,13 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<AIMode>(getStoredMode);
-  const [hasKey] = useState(() => isAIReady());
+  // Live: re-renders when the provider or saved key changes in settings.
+  const { active: activeProvider, hasKey } = useAIProvider();
+  const navigate = useNavigate();
+  const openSettings = () => {
+    onClose();
+    navigate("/more#ai-provider");
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -175,9 +185,19 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
         {/* Header */}
         <div className="border-b border-theme px-5 pt-3 pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-gold-500" />
-              <span className="text-sm font-semibold">Ask AI</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <Sparkles size={16} className="shrink-0 text-gold-500" />
+              <span className="shrink-0 text-sm font-semibold">Ask AI</span>
+              <button
+                onClick={openSettings}
+                className="flex min-h-11 min-w-0 items-center gap-1 rounded-lg px-1.5 text-2xs font-semibold text-muted active:opacity-70"
+                aria-label={`AI provider: ${currentProviderLabel()}. Change in settings`}
+                title="Change AI provider"
+                data-provider={activeProvider}
+              >
+                <span className="truncate">{currentProviderLabel()}</span>
+                <Settings2 size={12} className="shrink-0" />
+              </button>
             </div>
             <div className="flex items-center gap-1">
               {messages.length > 0 && (
@@ -225,8 +245,14 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
 
         {!hasKey ? (
           <div className="flex-1 overflow-y-auto px-4 py-6 text-center">
-            <p className="text-[13px] text-muted">
-              AI runs via a secure server proxy, but the proxy is not configured.
+            <p className="mx-auto max-w-[300px] text-[13px] leading-relaxed text-muted">
+              {aiNotReadyReason() ?? "Choose an AI provider to start asking questions."}
+            </p>
+            <button onClick={openSettings} className="btn-primary mt-4 min-h-11">
+              <Settings2 size={16} /> Open AI settings
+            </button>
+            <p className="mx-auto mt-3 max-w-[280px] text-[11px] text-muted">
+              Gemini has a free tier — no credit card needed. Your key stays on this device.
             </p>
           </div>
         ) : (

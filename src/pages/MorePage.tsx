@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Sun,
   Moon,
@@ -25,7 +26,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { BibleLanguageManager } from "@/components/ui/BibleLanguageManager";
-import { AIKeySetup } from "@/components/ui/AIKeySetup";
+import { AIProviderSettings } from "@/components/ui/AIProviderSettings";
 import { StudyPlanSetup } from "@/components/ui/StudyPlanSetup";
 import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
 import { useTheme } from "@/components/ui/ThemeProvider";
@@ -88,6 +89,14 @@ export function MorePage() {
   const completedCount = studies.filter((s) => progress[s.id]?.completed).length;
   const startedCount = Object.values(progress).filter((p) => p.started).length;
   const bookmarked = Object.values(progress).filter((p) => p.bookmarked).length;
+
+  // Deep link: /more#ai-provider (used by Ask AI when no key is saved).
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    const el = document.getElementById(hash.slice(1));
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [hash]);
 
 
 
@@ -165,12 +174,9 @@ export function MorePage() {
         </button>
       </Section>
 
-      {/* ── AI Assistant (proxy) ── */}
-      <Section icon={Sparkles} title="AI Assistant">
-        <p className="text-[12px] text-muted mb-2">
-          Ask AI runs via a secure server proxy — no API key needed in the browser.
-        </p>
-        <AIKeySetup inline onComplete={() => showToast("AI assistant ready", { type: "success" })} />
+      {/* ── AI provider (server or bring your own key) ── */}
+      <Section icon={Sparkles} title="AI provider" id="ai-provider">
+        <AIProviderSettings />
       </Section>
 
       {/* ── Bible Languages (always visible so users can uninstall/reinstall) ── */}
@@ -352,14 +358,16 @@ export function MorePage() {
 function Section({
   icon: Icon,
   title,
+  id,
   children,
 }: {
   icon: typeof Sun;
   title: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="card card-surface flex flex-col gap-3">
+    <section id={id} className="card card-surface flex scroll-mt-4 flex-col gap-3">
       <div className="flex items-center gap-2">
         <Icon size={15} className="text-gold-500" />
         <h2 className="text-xs font-bold uppercase tracking-caps text-gold-500">{title}</h2>

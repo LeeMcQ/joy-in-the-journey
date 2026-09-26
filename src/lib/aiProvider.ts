@@ -1,13 +1,32 @@
 /* ================================================================== */
 /*  AI Provider System                                                 */
-/*  Browser calls a secure Cloudflare Worker proxy (no API key in the  */
-/*  client). Modes map to worker routes:                               */
-/*  mode "normal"      → POST /normal  → deepseek-chat                 */
-/*  mode "deep"        → POST /deep    → deepseek-reasoner (non-stream)*/
-/*                       / deepseek-chat (stream)                      */
-/*  mode "explanatory" → POST /explanatory → deepseek-chat (long-form) */
-/*  Proxy URL: VITE_AI_PROXY_URL or default workers.dev endpoint.      */
+/*  Two routes, chosen in More → AI provider (see llmProviders.ts):    */
+/*                                                                    */
+/*  1. "server" — the Joy in the Journey Cloudflare Worker proxy (no   */
+/*     key in the browser). Modes map to worker routes:               */
+/*       normal → POST /normal, deep → POST /deep,                    */
+/*       explanatory → POST /explanatory                              */
+/*     Proxy URL: VITE_AI_PROXY_URL or default workers.dev endpoint.  */
+/*                                                                    */
+/*  2. Bring your own key — Gemini, Claude, ChatGPT, Groq, Grok,      */
+/*     DeepSeek or OpenRouter, called directly from the browser with  */
+/*     the learner's own key (saved only in this device's storage).   */
+/*                                                                    */
+/*  All system prompts (SYSTEM_PROMPT + MODE_DIRECTIVE, and            */
+/*  EXPLANATORY_SYSTEM_PROMPT) are built client-side in buildMessages, */
+/*  so both routes send identical prompts. The worker only adds the   */
+/*  server key and forwards the messages.                             */
 /* ================================================================== */
+
+import {
+  activeProviderLabel,
+  completeWithProvider,
+  getActiveProvider,
+  hasValidStoredKey,
+  missingKeyMessage,
+  type ActiveProviderId,
+  type LLMMessage,
+} from "@/lib/llmProviders";
 
 const PROXY_URL = (
   (import.meta.env.VITE_AI_PROXY_URL as string | undefined)?.trim() ||
@@ -16,14 +35,26 @@ const PROXY_URL = (
 
 export type AIMode = "normal" | "deep" | "explanatory";
 
-/* ── AI readiness (proxy — no browser API key) ─────────────────────── */
+/* ── AI readiness ──────────────────────────────────────────────────── */
 
-/** True when the AI proxy URL is configured (always is via default). */
+/**
+ * True when the active provider can be called: the proxy URL is configured
+ * (server route) or the chosen provider has a valid key saved on this device.
+ */
 export function isAIReady(): boolean {
-  return !!PROXY_URL;
+  const active = getActiveProvider();
+  if (active === "server") return !!PROXY_URL;
+  return hasValidStoredKey(active);
 }
 
-/** @deprecated Prefer isAIReady — DeepSeek key never lives in the browser. */
+/** Why AI isn't ready (for UI copy), or null when it is. */
+export function aiNotReadyReason(): string | null {
+  const active = getActiveProvider();
+  if (active === "server") return PROXY_URL ? null : "The Joy in the Journey server is not configured. Choose your own AI provider in More → AI provider.";
+  return hasValidStoredKey(active) ? null : missingKeyMessage(active);
+}
+
+/** @deprecated Prefer isAIReady. */
 export function hasDeepSeekKey(): boolean {
   return isAIReady();
 }
@@ -237,13 +268,16 @@ function friendlyAIError(status: number, body: string): string {
   if (status === 402 || lower.includes("insufficient") || lower.includes("balance"))
     return "AI service balance is low. Please try again later.";
   if (status === 404)
-    return "AI proxy endpoint not found. Please try again later.";
+    return `The Joy in the Journey server couldn't answer (not found). ${BYOK_TIP}`;
   if (status === 503 || lower.includes("not configured"))
-    return "AI proxy is not configured yet. Please try again later.";
+    return `The Joy in the Journey server is not configured yet. ${BYOK_TIP}`;
   if (status >= 500)
-    return "The study assistant is temporarily unavailable. Please try again in a moment.";
+    return `The Joy in the Journey server is temporarily unavailable. ${BYOK_TIP}`;
   return "Couldn't reach the study assistant. Please check your connection and try again.";
 }
+
+const BYOK_TIP =
+  "You can use your own AI instead: open More → AI provider and pick Gemini (free) or another provider.";
 
 function requireProxy(): string {
   if (!PROXY_URL) {
@@ -254,6 +288,46 @@ function requireProxy(): string {
   return PROXY_URL;
 }
 
+/* ── Direct provider route (bring your own key) ─────────────────────── */
+
+function maxTokensFor(mode: AIMode, stream: boolean): number {
+  if (mode === "explanatory") return 8192;
+  return stream ? 4096 : 1200;
+}
+
+/** Split [system, ...turns] into a system prompt + user/assistant turns. */
+function splitMessages(messages: ChatMessage[]): { system: string; turns: LLMMessage[] } {
+  const system = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  const turns = messages
+    .filter((m): m is ChatMessage & { role: "user" | "assistant" } => m.role !== "system")
+    .map((m) => ({ role: m.role, content: m.content }));
+  return { system, turns };
+}
+
+async function directComplete(
+  provider: Exclude<ActiveProviderId, "server">,
+  mode: AIMode,
+  messages: ChatMessage[],
+  stream: boolean,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!hasValidStoredKey(provider)) throw new Error(missingKeyMessage(provider));
+  const { system, turns } = splitMessages(messages);
+  return completeWithProvider(provider, turns, {
+    system,
+    maxTokens: maxTokensFor(mode, stream),
+    signal,
+  });
+}
+
+/** Human label for the provider that will answer ("Gemini · gemini-3.8-flash"). */
+export function currentProviderLabel(): string {
+  return activeProviderLabel();
+}
+
 /* ── Non-streaming chat ────────────────────────────────────────────── */
 
 export async function chatWithAI(
@@ -261,15 +335,31 @@ export async function chatWithAI(
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  const base = requireProxy();
-  const max_tokens = mode === "explanatory" ? 8192 : 1200;
+  const active = getActiveProvider();
+  if (active !== "server") return directComplete(active, mode, messages, false, signal);
+  return proxyChat(mode, messages, signal);
+}
 
-  const res = await fetch(`${base}${proxyPath(mode)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, max_tokens, stream: false }),
-    signal,
-  });
+async function proxyChat(
+  mode: AIMode,
+  messages: ChatMessage[],
+  signal?: AbortSignal,
+): Promise<string> {
+  const base = requireProxy();
+  const max_tokens = maxTokensFor(mode, false);
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}${proxyPath(mode)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, max_tokens, stream: false }),
+      signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") throw e;
+    throw new Error(friendlyAIError(0, ""));
+  }
 
   if (!res.ok) {
     throw new Error(friendlyAIError(res.status, await res.text().catch(() => "")));
@@ -279,23 +369,50 @@ export async function chatWithAI(
   return data.choices?.[0]?.message?.content ?? "Sorry, I couldn't get a response.";
 }
 
+/** Tiny round-trip to the Joy in the Journey server (settings "Test"). */
+export async function testServer(signal?: AbortSignal): Promise<{ text: string; ms: number }> {
+  const t0 = performance.now();
+  const messages = buildMessages({ task: "chat", mode: "normal", userText: "Reply with just the word: Amen" });
+  const text = await proxyChat("normal", messages, signal);
+  return { text: text.slice(0, 80), ms: Math.round(performance.now() - t0) };
+}
+
 /* ── Streaming chat ────────────────────────────────────────────────── */
 
+/**
+ * Streams from the server proxy. Direct providers answer in one piece
+ * (non-streaming, like End Times Faith) — delivered as a single chunk so
+ * callers keep working unchanged.
+ */
 export async function streamWithAI(
   mode: AIMode,
   messages: ChatMessage[],
   onChunk: (text: string) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const base = requireProxy();
-  const max_tokens = mode === "explanatory" ? 8192 : 4096;
+  const active = getActiveProvider();
+  if (active !== "server") {
+    const text = await directComplete(active, mode, messages, true, signal);
+    if (signal.aborted) return;
+    onChunk(text);
+    return;
+  }
 
-  const res = await fetch(`${base}${proxyPath(mode)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, max_tokens, stream: true }),
-    signal,
-  });
+  const base = requireProxy();
+  const max_tokens = maxTokensFor(mode, true);
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}${proxyPath(mode)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, max_tokens, stream: true }),
+      signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") throw e;
+    throw new Error(friendlyAIError(0, ""));
+  }
 
   if (!res.ok || !res.body) {
     throw new Error(friendlyAIError(res.status, await res.text().catch(() => "")));
