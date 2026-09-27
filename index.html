@@ -32,7 +32,7 @@
     <script>
       try {
         const s = JSON.parse(localStorage.getItem('joy-journey-storage') || '{}');
-        const th = s?.state?.settings?.theme || 'dark';
+        const th = localStorage.getItem('joy-theme') || s?.state?.settings?.theme || 'dark';
         document.documentElement.classList.add('theme-' + th);
         const meta = document.querySelector('meta[name="theme-color"]');
         const colors = { dark: '#0F172A', light: '#FFFFFF', sepia: '#F5F0E6' };
@@ -41,9 +41,9 @@
     </script>
 
     <title>Joy in the Journey</title>
-    <script type="module" crossorigin src="/joy-in-the-journey/assets/index-CrIQ5psu.js"></script>
+    <script type="module" crossorigin src="/joy-in-the-journey/assets/index-CPhSJVO6.js"></script>
     <link rel="modulepreload" crossorigin href="/joy-in-the-journey/assets/study-data-Bd_yA7tR.js">
-    <link rel="stylesheet" crossorigin href="/joy-in-the-journey/assets/index-DIdfuatS.css">
+    <link rel="stylesheet" crossorigin href="/joy-in-the-journey/assets/index-DBf9VASK.css">
   <link rel="manifest" href="/joy-in-the-journey/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/joy-in-the-journey/registerSW.js"></script></head>
   <body class="antialiased">
     <div id="root"></div>
