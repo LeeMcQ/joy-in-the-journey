@@ -65,11 +65,15 @@ function modeFromPath(pathname: string): Mode | null {
   return null;
 }
 
-function modelFor(mode: Mode, stream: boolean): string {
-  if (mode === "explanatory") return "deepseek-chat";
-  // Prefer reasoner for deep non-streaming; stream with chat for reliable SSE deltas.
-  if (mode === "deep" && !stream) return "deepseek-reasoner";
-  return "deepseek-chat";
+// deepseek-chat / deepseek-reasoner were retired on 2026-07-24; deepseek-flash is current.
+function modelFor(_mode: Mode, _stream: boolean): string {
+  return "deepseek-flash";
+}
+
+// Thinking is on by default for deepseek-flash. Keep it only for Deep (non-streaming)
+// answers; Normal/Explanatory and streamed replies turn it off for speed and clean deltas.
+function thinkingFor(mode: Mode, stream: boolean): { type: "enabled" | "disabled" } {
+  return mode === "deep" && !stream ? { type: "enabled" } : { type: "disabled" };
 }
 
 function defaultMaxTokens(mode: Mode, stream: boolean): number {
@@ -134,6 +138,7 @@ export default {
           messages: body.messages,
           max_tokens,
           stream,
+          thinking: thinkingFor(mode, stream),
         }),
       });
     } catch {
