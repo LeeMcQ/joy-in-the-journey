@@ -17,12 +17,26 @@ import studiesData from "@/data/studies.json";
 /*  State shape                                                       */
 /* ------------------------------------------------------------------ */
 
+/** A verse saved from the scripture popup ("Save" button). */
+export interface SavedVerse {
+  id: string;
+  reference: string;
+  text: string;
+  translation: string;
+  createdAt: string; // ISO date
+}
+
 interface AppStore {
   studies: Study[];
   progress: Record<number, StudyProgress>;
   settings: AppSettings;
   studyPlan: StudyPlan;
   bibleBookmark: { book: string; chapter: number; translation: string } | null;
+  savedVerses: SavedVerse[];
+
+  // Saved verses
+  addSavedVerse: (v: Omit<SavedVerse, "id" | "createdAt">) => void;
+  removeSavedVerse: (id: string) => void;
 
   // Study progress
   startStudy: (studyId: number) => void;
@@ -113,16 +127,27 @@ function createIDBStorage() {
   const STORE_NAME = "kv";
   const DB_VERSION = 1;
 
+  // Reuse one connection (a new one per read/write was opened and never
+  // closed) and close it on versionchange so "Reset Everything" can delete it.
+  let dbPromise: Promise<IDBDatabase> | null = null;
+
   function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onversionchange = () => { db.close(); dbPromise = null; };
+        db.onclose = () => { dbPromise = null; };
+        resolve(db);
+      };
+      req.onerror = () => { dbPromise = null; reject(req.error); };
     });
+    return dbPromise;
   }
 
   return createJSONStorage<Pick<AppStore, "progress" | "settings" | "studyPlan">>(() => ({
@@ -181,6 +206,16 @@ export const useAppStore = create<AppStore>()(
       },
       studyPlan: { ...defaultPlan },
       bibleBookmark: null,
+      savedVerses: [],
+
+      /* ── Saved verses ──────────────────────────────── */
+
+      addSavedVerse: (v) => set((s) => {
+        const dup = s.savedVerses.some((x) => x.reference === v.reference && x.translation === v.translation);
+        if (dup) return {};
+        return { savedVerses: [{ ...v, id: uid(), createdAt: new Date().toISOString() }, ...s.savedVerses] };
+      }),
+      removeSavedVerse: (id) => set((s) => ({ savedVerses: s.savedVerses.filter((x) => x.id !== id) })),
 
       /* ── Progress ──────────────────────────────────── */
 
@@ -341,6 +376,7 @@ export const useAppStore = create<AppStore>()(
         settings: state.settings,
         studyPlan: state.studyPlan,
         bibleBookmark: state.bibleBookmark,
+        savedVerses: state.savedVerses,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;

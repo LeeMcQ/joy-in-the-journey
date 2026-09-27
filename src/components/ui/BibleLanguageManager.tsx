@@ -86,7 +86,7 @@ export function BibleLanguageManager() {
   const updateState = (id: string, patch: Partial<TranslationState>) =>
     setStates((prev) => prev.map((s) => (s.translationId === id ? { ...s, ...patch } : s)));
 
-  const handleInstall = async (translationId: TranslationId) => {
+  const handleInstall = async (translationId: TranslationId, reinstall = false) => {
     const meta = LOCAL_TRANSLATIONS.find((t) => t.id === translationId);
     if (!meta?.downloadable) return;
 
@@ -95,6 +95,12 @@ export function BibleLanguageManager() {
     updateState(translationId, { installing: true, error: null, progress: null });
 
     try {
+      // "Re-install" used to be a no-op: both engines skip data that is
+      // already present. Clear first so it really fetches a fresh copy.
+      if (reinstall) {
+        await clearTranslationCache(translationId);
+        updateState(translationId, { installed: false });
+      }
       await downloadTranslation(
         translationId,
         (p) => updateState(translationId, { progress: p }),
@@ -223,6 +229,8 @@ export function BibleLanguageManager() {
                 {state.installing ? (
                   <button
                     onClick={() => handleCancel(t.id)}
+                    title="Cancel"
+                    aria-label={`Cancel ${t.name} download`}
                     className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400 active:opacity-70"
                   >
                     <Loader2 size={15} className="animate-spin" />
@@ -230,14 +238,17 @@ export function BibleLanguageManager() {
                 ) : state.installed ? (
                   <div className="flex gap-1">
                     <button
-                      onClick={() => handleInstall(t.id)}
+                      onClick={() => handleInstall(t.id, true)}
                       title="Re-install"
+                      aria-label={`Re-install ${t.name}`}
                       className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface text-muted active:opacity-70"
                     >
                       <RefreshCw size={13} />
                     </button>
                     <button
                       onClick={() => handleUninstall(t.id)}
+                      title="Remove"
+                      aria-label={`Remove ${t.name}`}
                       className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface text-muted active:opacity-70 hover:text-red-400"
                     >
                       <Trash2 size={14} />
@@ -246,6 +257,7 @@ export function BibleLanguageManager() {
                 ) : (
                   <button
                     onClick={() => handleInstall(t.id)}
+                    aria-label={`Install ${t.name}`}
                     disabled={!navigator.onLine}
                     className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-500/15 text-gold-500 active:opacity-70 disabled:opacity-30"
                     title={

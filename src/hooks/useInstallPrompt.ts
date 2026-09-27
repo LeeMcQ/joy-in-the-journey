@@ -29,14 +29,18 @@ export function useInstallPrompt() {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener("beforeinstallprompt", handler);
-
-    window.addEventListener("appinstalled", () => {
+    const onInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
-    });
+    };
 
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", onInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   const install = useCallback(async () => {

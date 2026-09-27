@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpen, Sparkles, TrendingUp, Clock, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/components/ui/ThemeProvider";
+import { useStoreHydrated } from "@/hooks/useStoreHydrated";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { StudyPlanSetup } from "@/components/ui/StudyPlanSetup";
 import { StudyGroupPanel } from "@/components/ui/StudyGroupPanel";
@@ -71,7 +72,16 @@ export function HomePage() {
   const todayStudy         = useAppStore((s) => s.getTodayStudy());
   const dayNumber          = useAppStore((s) => s.getDayNumber());
 
-  const [showSetup, setShowSetup] = useState(!studyPlan.configured);
+  // Decide on the onboarding modal only after the persisted plan has loaded,
+  // otherwise configured users could see it again on a cold start.
+  const hydrated = useStoreHydrated();
+  const [showSetup, setShowSetup] = useState(false);
+  const [setupChecked, setSetupChecked] = useState(false);
+  useEffect(() => {
+    if (!hydrated || setupChecked) return;
+    setSetupChecked(true);
+    if (!studyPlan.configured) setShowSetup(true);
+  }, [hydrated, setupChecked, studyPlan.configured]);
   const [showStats, setShowStats] = useState(false);
   const [verseLang, setVerseLang]  = useState<"afr" | "eng">("afr");
 

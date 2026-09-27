@@ -32,7 +32,7 @@
     <script>
       try {
         const s = JSON.parse(localStorage.getItem('joy-journey-storage') || '{}');
-        const th = s?.state?.settings?.theme || 'dark';
+        const th = localStorage.getItem('joy-theme') || s?.state?.settings?.theme || 'dark';
         document.documentElement.classList.add('theme-' + th);
         const meta = document.querySelector('meta[name="theme-color"]');
         const colors = { dark: '#0F172A', light: '#FFFFFF', sepia: '#F5F0E6' };

@@ -30,6 +30,8 @@ export default function App() {
               <Route path="/bible" element={<BiblePage />} />
               <Route path="/notes" element={<NotesPage />} />
               <Route path="/more" element={<MorePage />} />
+              {/* Unknown paths used to render an empty screen */}
+              <Route path="*" element={<Navigate to="/bible" replace />} />
             </Routes>
           </Suspense>
         </AppShell>

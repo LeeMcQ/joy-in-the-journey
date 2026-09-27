@@ -56,6 +56,9 @@ export function StudyPage() {
   /* ── Completion celebration ─────────────────────────── */
   const [showCelebration, setShowCelebration] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  // Hooks must run before the early "not found" return below (Rules of Hooks).
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(celebrationTimerRef.current), []);
 
   /* ── Mark started on mount ──────────────────────────── */
   useEffect(() => {
@@ -87,8 +90,6 @@ export function StudyPage() {
   const prevStudy = studies.find((s) => s.number === study.number - 1);
   const nextStudy = studies.find((s) => s.number === study.number + 1);
 
-  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout>>();
-
   const handleComplete = () => {
     completeStudy(studyId);
     feedbackComplete();
@@ -97,9 +98,6 @@ export function StudyPage() {
     celebrationTimerRef.current = setTimeout(() => setShowCelebration(false), 5000);
     logGroupActivity({ type: "completion", studyNumber: study.number, studyTitle: study.title });
   };
-
-  // Cleanup celebration timer
-  useEffect(() => () => clearTimeout(celebrationTimerRef.current), []);
 
   let elementIndex = 0;
 
@@ -152,12 +150,15 @@ export function StudyPage() {
               </button>
               <button
                 onClick={() => {
-                  navigator.share?.({
-                    title: `${study.title} — SDA Bible Study Companion`,
-                    text: `Study ${study.number}: ${study.title}`,
-                  });
+                  // navigator.share was called bare: no fallback where it is
+                  // unsupported and an unhandled rejection when cancelled.
+                  shareOrCopy(
+                    `✝️ *SDA Bible Study Companion*\n📖 Study ${study.number}: ${study.title}\n\nleemcq.github.io/joy-in-the-journey`,
+                    (msg) => showToast(msg),
+                  );
                 }}
                 className="rounded-lg p-2.5 -m-1 active:opacity-70"
+                aria-label="Share study"
               >
                 <Share2
                   size={16}

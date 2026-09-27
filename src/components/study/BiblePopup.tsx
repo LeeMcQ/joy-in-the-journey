@@ -12,6 +12,7 @@ import {
 import { showToast } from "@/components/ui/Toast";
 import { formatVerseMessage, shareOrCopy } from "@/lib/sharing";
 import { MarkdownBlock } from "@/components/ui/MarkdownBlock";
+import { useAppStore } from "@/store/useAppStore";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,8 @@ export interface BiblePopupProps {
   reference: string | null;
   onClose: () => void;
   onOpenReader?: (ref: string) => void;
+  /** Tab to open on (e.g. the reader's current translation). Defaults to AFR. */
+  initialTranslation?: InlineTab;
 }
 
 // ─── Bible Gateway translations (always GNB first) ─────────────────────────
@@ -97,15 +100,15 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export function BiblePopup({ reference, onClose, onOpenReader }: BiblePopupProps) {
+export function BiblePopup({ reference, onClose, onOpenReader, initialTranslation }: BiblePopupProps) {
   if (!reference) return null;
-  return <BiblePopupInner reference={reference} onClose={onClose} onOpenReader={onOpenReader} />;
+  return <BiblePopupInner reference={reference} onClose={onClose} onOpenReader={onOpenReader} initialTab={initialTranslation ?? "afr"} />;
 }
 
-function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: string; onClose: () => void; onOpenReader?: (ref: string) => void; }) {
-  const [activeTab, setActiveTab] = useState<InlineTab>("afr");
+function BiblePopupInner({ reference, onClose, onOpenReader, initialTab }: { reference: string; onClose: () => void; onOpenReader?: (ref: string) => void; initialTab: InlineTab; }) {
+  const [activeTab, setActiveTab] = useState<InlineTab>(initialTab);
   const [cache, setCache] = useState<Partial<Record<InlineTab, VerseData>>>({});
-  const [loading, setLoading] = useState<Partial<Record<InlineTab, boolean>>>({ afr: true });
+  const [loading, setLoading] = useState<Partial<Record<InlineTab, boolean>>>({ [initialTab]: true });
   const [tabErr, setTabErr] = useState<Partial<Record<InlineTab, string>>>({});
   const [showAi, setShowAi] = useState(false);
   const [aiText, setAiText] = useState("");
@@ -129,12 +132,12 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
     try {
       const result = await fetchFromBibleApi(reference, tab);
       if (result) setCache((p) => ({ ...p, [tab]: result }));
-      else setTabErr((p) => ({ ...p, [tab]: tab === "xho" ? "Xhosa Bible not installed. Download in Settings → Bible Languages." : "Vers nie gevind nie." }));
+      else setTabErr((p) => ({ ...p, [tab]: tab === "xho" ? "Xhosa Bible not installed. Download it under More → Bible Languages." : "Vers nie gevind nie." }));
     } catch { setTabErr((p) => ({ ...p, [tab]: "Kon nie vers laai nie." })); }
     finally { setLoading((p) => ({ ...p, [tab]: false })); }
   }, [reference, cache]);
 
-  useEffect(() => { fetchVerse("afr"); }, [reference, fetchVerse]);
+  useEffect(() => { fetchVerse(initialTab); }, [reference, fetchVerse, initialTab]);
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   const handleTab = (tab: InlineTab) => { setActiveTab(tab); fetchVerse(tab); };
@@ -151,19 +154,19 @@ function BiblePopupInner({ reference, onClose, onOpenReader }: { reference: stri
     shareOrCopy(text, (msg) => showToast(msg));
   };
 
-  // ── Highlight (save to store) ──
+  // ── Save verse (Journal → Highlights) ──
+  // Previously dispatched a "joy:highlight-verse" event nothing listened to,
+  // so "Added to highlights" was shown but nothing was saved.
+  const addSavedVerse = useAppStore((s) => s.addSavedVerse);
   const handleHighlight = () => {
     const d = cache[activeTab];
     if (!d) return;
-    // Dispatch custom event that StudyPage / other components listen for
-    window.dispatchEvent(new CustomEvent("joy:highlight-verse", {
-      detail: {
-        reference: d.reference,
-        text: d.verses.map((v) => v.text).join(" "),
-        translation: d.translation,
-      }
-    }));
-    showToast("Added to highlights", { type: "success" });
+    addSavedVerse({
+      reference: d.reference,
+      text: d.verses.map((v) => v.text).join(" "),
+      translation: d.translation,
+    });
+    showToast("Saved to Journal → Highlights", { type: "success" });
   };
 
   // ── AI ──
