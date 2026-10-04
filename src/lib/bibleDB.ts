@@ -45,6 +45,8 @@ export const TRANSLATIONS: BibleTranslation[] = [
   },
 ];
 
+import { fetchBibleData } from "@/lib/platform";
+
 /* ── IndexedDB setup ─────────────────────────────────── */
 
 const DB_NAME  = "joy-bible-db";
@@ -242,10 +244,10 @@ export async function installTranslation(
 
   // Phase 1: fetch JSON
   onProgress({ phase: "fetching", done: 0, total: 1 });
-  const base = import.meta.env.BASE_URL ?? "/";
-  const url  = `${base.endsWith("/") ? base.slice(0, -1) : base}${meta.jsonPath}`;
-
-  const res = await fetch(url, signal ? { signal } : undefined);
+  // Same URL as before on the web; the Android app fetches it from the live
+  // site (XHO75 is never bundled in the APK). Not kept in Cache Storage: the
+  // verses are imported into IndexedDB below.
+  const res = await fetchBibleData(meta.jsonPath, signal, false);
   if (!res.ok) throw new Error(`Failed to fetch ${translationId}: HTTP ${res.status}`);
 
   const bible: JsonBible = await res.json();

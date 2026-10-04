@@ -27,6 +27,7 @@ import {
   type ActiveProviderId,
   type LLMMessage,
 } from "@/lib/llmProviders";
+import { nativePostJson } from "@/lib/platform";
 
 const PROXY_URL = (
   (import.meta.env.VITE_AI_PROXY_URL as string | undefined)?.trim() ||
@@ -350,12 +351,17 @@ async function proxyChat(
 
   let res: Response;
   try {
-    res = await fetch(`${base}${proxyPath(mode)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, max_tokens, stream: false }),
-      signal,
-    });
+    // Android app (origin https://localhost): the worker's CORS allow-list
+    // doesn't include that origin, so call it natively (no CORS). Web: fetch.
+    res = __ANDROID_APP__
+      ? await nativePostJson(`${base}${proxyPath(mode)}`, { messages, max_tokens, stream: false })
+      : await fetch(`${base}${proxyPath(mode)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages, max_tokens, stream: false }),
+          signal,
+        });
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") throw e;
     throw new Error(friendlyAIError(0, ""));
@@ -393,6 +399,15 @@ export async function streamWithAI(
   const active = getActiveProvider();
   if (active !== "server") {
     const text = await directComplete(active, mode, messages, true, signal);
+    if (signal.aborted) return;
+    onChunk(text);
+    return;
+  }
+
+  // Android app: the native HTTP client can't stream, so ask the worker for
+  // one complete answer and deliver it as a single chunk (like direct providers).
+  if (__ANDROID_APP__) {
+    const text = await proxyChat(mode, messages, signal);
     if (signal.aborted) return;
     onChunk(text);
     return;

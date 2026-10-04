@@ -1,5 +1,6 @@
 import { BIBLE_BOOKS, type BibleBook } from "@/lib/bibleData";
 import { normaliseReference } from "@/lib/scriptureUtils";
+import { fetchBibleData, forgetBibleData } from "@/lib/platform";
 
 /* ── Types ────────────────────────────────────────────── */
 
@@ -191,12 +192,7 @@ async function setInCache(key: string, verses: LocalVerse[]): Promise<void> {
   } catch { /* silently fail */ }
 }
 
-/* ── Base URL (GitHub Pages safe) ────────────────────── */
-
-function getBaseUrl(): string {
-  const base = import.meta.env.BASE_URL ?? "/";
-  return base.endsWith("/") ? base : `${base}/`;
-}
+/* ── Base URL: see bibleDataUrl() in lib/platform.ts ── */
 
 /* ══════════════════════════════════════════════════════
    IN-MEMORY FULL BIBLE CACHE
@@ -282,8 +278,9 @@ async function loadFullBibleIntoMemory(
   }
 
   try {
-    const url = `${getBaseUrl()}bibles/${translation.toLowerCase()}.json`;
-    const res = await fetch(url, signal ? { signal } : undefined);
+    // Android app: bundled KJV/WEB come from the APK, others from the live
+    // site and are kept on the device (see lib/platform.ts). Web: unchanged.
+    const res = await fetchBibleData(`bibles/${translation.toLowerCase()}.json`, signal);
     if (!res.ok) return null;
 
     const data: any = await res.json();
@@ -735,6 +732,7 @@ export async function getCachedChapterCount(translation: TranslationId): Promise
 export async function clearTranslationCache(translation: TranslationId): Promise<void> {
   clearTranslationReady(translation);
   fullBibleMemoryCache.delete(translation);
+  await forgetBibleData(`bibles/${translation}.json`); // Android app only; no-op on the web
 
   if (translation === "xho") {
     const { uninstallTranslation } = await import("@/lib/bibleDB");

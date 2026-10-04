@@ -24,6 +24,7 @@ import {
   type TranslationId,
   type DownloadProgress,
 } from "@/lib/localBible";
+import { isBundledBible } from "@/lib/platform";
 
 const TOTAL_CHAPTERS = 1189; // Genesis–Revelation chapter count
 
@@ -258,10 +259,11 @@ export function BibleLanguageManager() {
                   <button
                     onClick={() => handleInstall(t.id)}
                     aria-label={`Install ${t.name}`}
-                    disabled={!navigator.onLine}
+                    // Android app: bundled Bibles (KJV/WEB) can be saved offline too.
+                    disabled={!navigator.onLine && !isBundledBible(t.id)}
                     className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-500/15 text-gold-500 active:opacity-70 disabled:opacity-30"
                     title={
-                      navigator.onLine
+                      navigator.onLine || isBundledBible(t.id)
                         ? `Install ${t.name}`
                         : "Connect to internet to download"
                     }

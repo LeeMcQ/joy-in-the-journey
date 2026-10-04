@@ -8,3 +8,4 @@ dist
 # Cloudflare Worker local secrets
 workers/**/.dev.vars
 workers/**/.wrangler/
+dist-android
