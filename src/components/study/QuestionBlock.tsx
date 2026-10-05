@@ -13,6 +13,7 @@ import { ScriptureLink } from "@/components/study/ScriptureLink";
 import { HighlightableText } from "@/components/study/HighlightableText";
 import { feedbackSave } from "@/lib/audio";
 import { AskAIButton } from "@/components/study/AskAIButton";
+import { DictationButton } from "@/components/ui/DictationButton";
 import type { Question } from "@/data/types";
 
 interface Props {
@@ -43,6 +44,7 @@ export function QuestionBlock({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const idleTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setAnswer(saved); }, [saved]);
 
@@ -168,13 +170,14 @@ export function QuestionBlock({
             {/* Answer textarea */}
             <div className="relative mt-3">
               <textarea
+                ref={textareaRef}
                 value={answer}
                 onChange={(e) => handleChange(e.target.value)}
                 onBlur={handleBlur}
                 placeholder="Write down your thoughts…"
                 rows={2}
                 className={cn(
-                  "w-full resize-none bg-transparent",
+                  "w-full resize-none bg-transparent pr-12",
                   "border-b border-theme focus:border-gold-500/40",
                   "text-primary placeholder:text-muted",
                   "py-2 outline-none transition-colors",
@@ -182,7 +185,14 @@ export function QuestionBlock({
                   answer && "border-gold-500/15",
                 )}
               />
-              <div className="absolute right-3 top-3">
+              <div className="absolute right-1 top-2 flex items-center gap-1">
+                <DictationButton
+                  size="sm"
+                  value={answer}
+                  onChange={handleChange}
+                  inputRef={textareaRef}
+                  className="!bg-transparent"
+                />
                 {saveState === "saving" && (
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gold-500/30 border-t-gold-500" />
                 )}

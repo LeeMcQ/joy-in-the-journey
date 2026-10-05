@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -13,6 +13,7 @@ import { ArrowHeader } from "@/components/ui/ArrowHeader";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { cn, countQuestions, truncate } from "@/lib/utils";
 import type { Study } from "@/data/types";
+import { DictationButton } from "@/components/ui/DictationButton";
 
 export function StudyListPage() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export function StudyListPage() {
   const getCompletionPercent = useAppStore((s) => s.getCompletionPercent);
 
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return studies;
@@ -55,21 +57,31 @@ export function StudyListPage() {
           className="text-muted pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
         />
         <input
+          ref={searchRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by title, topic, or number…"
-          className="input pl-10 pr-10"
+          className={cn("input pl-10", query ? "pr-20" : "pr-12")}
         />
-        {query && (
-          <button
-            onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 text-muted"
-            aria-label="Clear search"
-          >
-            <X size={16} />
-          </button>
-        )}
+        <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+          <DictationButton
+            size="sm"
+            value={query}
+            onChange={setQuery}
+            inputRef={searchRef}
+            className="!bg-transparent"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="rounded-full p-2 text-muted"
+              aria-label="Clear search"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Study list ───────────────────────────────────── */}

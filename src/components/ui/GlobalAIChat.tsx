@@ -21,6 +21,7 @@ import {
   type AIContext,
 } from "@/lib/aiProvider";
 import { useAIProvider } from "@/hooks/useAIProvider";
+import { DictationButton } from "@/components/ui/DictationButton";
 
 interface Props {
   open: boolean;
@@ -341,6 +342,13 @@ export function GlobalAIChat({ open, onClose, context }: Props) {
               className="input flex-1 !rounded-xl !py-2.5"
               disabled={loading}
             />
+            {!loading && (
+              <DictationButton
+                value={input}
+                onChange={setInput}
+                inputRef={inputRef}
+              />
+            )}
             {loading ? (
               <button
                 onClick={handleStop}

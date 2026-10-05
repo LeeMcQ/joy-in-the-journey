@@ -1,5 +1,5 @@
 /* Study Group Panel — supports multiple groups (create + join) */
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Users, Copy, Share2, LogOut, Plus, Hash, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/Toast";
@@ -8,6 +8,7 @@ import {
   getGroupActivity, getGroupShareMessage, relativeTime, type StudyGroup,
 } from "@/lib/studyGroups";
 import { shareOrCopy } from "@/lib/sharing";
+import { DictationButton } from "@/components/ui/DictationButton";
 
 export function StudyGroupPanel({ variant = "widget" }: { variant?: "widget" | "full" }) {
   const [groups, setGroups] = useState<StudyGroup[]>(getGroups);
@@ -57,6 +58,8 @@ function GroupManager({ groups, setGroups }: { groups: StudyGroup[]; setGroups: 
   const [groupName, setGroupName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState("");
+  const groupNameRef = useRef<HTMLInputElement>(null);
+  const joinNameRef = useRef<HTMLInputElement>(null);
   const [openCode, setOpenCode] = useState<string | null>(null);
   const activity = getGroupActivity();
 
@@ -140,13 +143,19 @@ function GroupManager({ groups, setGroups }: { groups: StudyGroup[]; setGroups: 
 
           {tab === "create" ? (
             <div className="flex flex-col gap-3">
-              <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Group name (e.g. Maranatha Sabbath School)" className="input" maxLength={50} />
+              <div className="flex items-center gap-2">
+                <input ref={groupNameRef} type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Group name (e.g. Maranatha Sabbath School)" className="input flex-1" maxLength={50} />
+                <DictationButton size="sm" value={groupName} onChange={setGroupName} inputRef={groupNameRef} />
+              </div>
               <button onClick={handleCreate} disabled={!groupName.trim()} className="btn-primary w-full disabled:opacity-30"><Plus size={16} /> Create Group</button>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               <input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))} placeholder="Group code (6 characters)" className="input font-mono text-center text-lg uppercase tracking-widest" maxLength={6} />
-              <input type="text" value={joinName} onChange={(e) => setJoinName(e.target.value)} placeholder="Group name (optional)" className="input" maxLength={50} />
+              <div className="flex items-center gap-2">
+                <input ref={joinNameRef} type="text" value={joinName} onChange={(e) => setJoinName(e.target.value)} placeholder="Group name (optional)" className="input flex-1" maxLength={50} />
+                <DictationButton size="sm" value={joinName} onChange={setJoinName} inputRef={joinNameRef} />
+              </div>
               <button onClick={handleJoin} disabled={joinCode.trim().length !== 6} className="btn-primary w-full disabled:opacity-30"><Hash size={16} /> Join Group</button>
             </div>
           )}

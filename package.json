@@ -1,7 +1,7 @@
 {
   "name": "joy-in-the-journey",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "The Joy in the Journey — Interactive Bible Study PWA",
   "scripts": {
@@ -12,6 +12,7 @@
     "download-bibles": "node scripts/download-bibles.js"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/core": "^8.5.2",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",

@@ -18,6 +18,7 @@ import {
   type TranslationId, type VerseResult, type LocalVerse, type DownloadProgress,
 } from "@/lib/localBible";
 import { BiblePopup } from "@/components/study/BiblePopup";
+import { DictationButton } from "@/components/ui/DictationButton";
 
 type ViewMode = "bookSelect" | "chapterSelect" | "reading" | "search" | "download";
 
@@ -50,6 +51,7 @@ export function BiblePage() {
   const [highlightVerse, setHighlightVerse] = useState<number | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<VerseResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -442,13 +444,21 @@ export function BiblePage() {
             <div className="relative">
               <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
                 placeholder={translation === "xho" ? "e.g. Yohane 3:16 or uThixo" : "e.g. John 3:16, Romans 8 or a word"}
-                className="input pl-10 pr-4"
+                className="input pl-10 pr-12"
                 autoFocus
+              />
+              <DictationButton
+                size="sm"
+                value={searchQuery}
+                onChange={setSearchQuery}
+                inputRef={searchInputRef}
+                className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 !bg-transparent"
               />
             </div>
             <button onClick={handleSearch} className="btn-primary text-sm">
